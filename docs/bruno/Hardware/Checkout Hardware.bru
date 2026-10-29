@@ -1,0 +1,18 @@
+meta {
+  name: Checkout Hardware
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/hardware/checkout
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Hardware 1",
+    "quantity": 1
+  }
+}

@@ -1,0 +1,56 @@
+body {
+  margin: 0;
+}
+
+.page-header {
+  background:#bf5700;
+  color: white;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.page-main {
+  padding: 20px 30px;
+}
+
+.projects-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.create-join-btn {
+  width: auto !important;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: white !important;
+  color: black !important;
+  cursor: pointer;
+}
+
+.project-list {
+  margin-top: 16px;
+}
+
+.project-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-top: 10px;
+}
+
+.checkout-btn {
+  width: auto !important;
+  background: none !important;
+  border: none;
+  color: #0645ad;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
