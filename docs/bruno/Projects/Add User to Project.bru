@@ -1,0 +1,18 @@
+meta {
+  name: Add User to Project
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/project_add_user
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "projectID": "proj001",
+    "userID": "testuser"
+  }
+}

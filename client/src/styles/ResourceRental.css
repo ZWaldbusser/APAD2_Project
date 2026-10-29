@@ -1,0 +1,76 @@
+body {
+  margin: 0;
+}
+
+.resource-main {
+  padding: 20px 30px;
+}
+
+.resource-main h2 {
+  margin: 0 0 16px;
+}
+
+.resource-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.resource-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #ddd;
+  font-size: 14px;
+  color: #555;
+}
+
+.resource-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.resource-table tr:last-child td {
+  border-bottom: none;
+}
+
+.resource-table input[type="number"] {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.checkout-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.checkout-submit-btn {
+  padding: 8px 24px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  color: black;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checkout-submit-btn:hover {
+  background: #f5f5f5;
+}
+
+.checkin-submit-btn {
+  padding: 8px 24px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  color: black;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checkin-submit-btn:hover {
+  background: #f5f5f5;
+}

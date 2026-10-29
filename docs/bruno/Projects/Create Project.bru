@@ -1,0 +1,20 @@
+meta {
+  name: Create Project
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/projects
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Test Project",
+    "description": "A test project",
+    "projectID": "proj001",
+    "owner": "testuser"
+  }
+}

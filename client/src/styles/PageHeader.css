@@ -1,0 +1,85 @@
+.page-header {
+  --nav-height: 80px;
+
+  background: #bf5700;
+  color: white;
+  box-sizing: border-box;
+  min-height: var(--nav-height);
+  padding: 12px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-header__title {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-left: 8px;
+}
+
+.page-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.page-header__user-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.page-header__logout-btn {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.page-header__logout-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.page-header__link {
+  color: white;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+
+.page-header__link:hover,
+.page-header__link--active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.page-header__logo {
+  height: 52px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 auto;
+}
