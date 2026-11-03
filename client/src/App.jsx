@@ -11,6 +11,7 @@ import JoinProject from "./pages/JoinProject";
 import PageHeader from "./components/PageHeader";
 import ResourceRental from "./pages/ResourceRental";
 import ProjectDashboard from "./pages/ProjectDashboard";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
@@ -23,6 +24,9 @@ function App() {
           <Route path="/register" element={<CreateUser />} />
           <Route path="/forgotpassword" element={<ForgotPassword />} />
 
+          <Route path="/dashboard" element={
+            <ProtectedRoute><Dashboard /></ProtectedRoute>
+          } />
           <Route path="/projects" element={
             <ProtectedRoute><ProjectDashboard /></ProtectedRoute>
           } />

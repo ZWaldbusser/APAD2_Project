@@ -5,3 +5,4 @@
 export * as users from "./users";
 export * as projects from "./projects";
 export * as hardware from "./hardware";
+export * as dashboard from "./dashboard";

@@ -13,6 +13,7 @@ function PageHeader({ title = "HaaS Hub" }) {
   const showNav = !hiddenOnRoutes.includes(location.pathname);
 
   const navItems = [
+    { to: "/dashboard", label: "Dashboard" },
     { to: "/projects", label: "Projects" },
     { to: "/userportal", label: "User Portal" },
     { to: "/createproject", label: "Create Project" },
