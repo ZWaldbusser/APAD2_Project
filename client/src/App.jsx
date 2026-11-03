@@ -11,6 +11,7 @@ import JoinProject from "./pages/JoinProject";
 import PageHeader from "./components/PageHeader";
 import ResourceRental from "./pages/ResourceRental";
 import ProjectDashboard from "./pages/ProjectDashboard";
+import TwoFactorSetup from "./pages/TwoFactorSetup";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<CreateUser />} />
           <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route path="/2fa/setup" element={<TwoFactorSetup />} />
 
           <Route path="/projects" element={
             <ProtectedRoute><ProjectDashboard /></ProtectedRoute>
