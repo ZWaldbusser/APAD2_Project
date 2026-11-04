@@ -1,4 +1,4 @@
-// Mock Dashboard service.
+// Mock Visualization service.
 //
 // PLACEHOLDER DATA. The pipeline team has not given us a contract yet.
 // The metrics come from the other mocks, so the page shows real numbers in
@@ -6,8 +6,8 @@
 
 import { db, ok, requireUser } from "./db";
 
-export const dashboardRoutes = [
-  ["GET", /^\/api\/dashboard$/, (_m, _b, token) => {
+export const visualizationRoutes = [
+  ["GET", /^\/api\/visualization$/, (_m, _b, token) => {
     const { userId, error } = requireUser(token);
     if (error) return error;
 

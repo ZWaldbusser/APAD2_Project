@@ -28,7 +28,7 @@ function handleUnauthorized(res) {
 }
 
 /**
- * @param {"users"|"projects"|"hardware"|"dashboard"} service  Service that owns the route
+ * @param {"users"|"projects"|"hardware"|"visualization"} service  Service that owns the route
  * @param {string} path                            Route path, e.g. "/api/projects"
  * @param {{method?: string, body?: object, auth?: boolean, headers?: object}} [options]
  *        body is a plain object. request() converts it to JSON.

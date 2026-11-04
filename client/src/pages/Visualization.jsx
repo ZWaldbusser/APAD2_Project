@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { dashboard } from "../services";
+import { visualization } from "../services";
 import "../styles/ProjectDashboard.css";
-import "../styles/Dashboard.css";
+import "../styles/Visualization.css";
 
-// Dashboard page.
+// Visualization page.
 // The data pipelines are not connected yet. The page loads from
-// services/dashboard.js, which uses mock data in mock mode.
+// services/visualization.js, which uses mock data in mock mode.
 
 const STATUS_LABELS = {
   not_connected: "Not connected",
@@ -14,7 +14,7 @@ const STATUS_LABELS = {
   failed: "Failed",
 };
 
-function Dashboard() {
+function Visualization() {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
@@ -23,11 +23,11 @@ function Dashboard() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await dashboard.getDashboard();
+        const res = await visualization.getVisualization();
         const body = await res.json();
         if (cancelled) return;
         if (!res.ok) {
-          setError(body.error || "Could not load dashboard");
+          setError(body.error || "Could not load visualization");
           setStatus("error");
           return;
         }
@@ -49,47 +49,47 @@ function Dashboard() {
     <div>
       <main className="page-main">
         <div className="projects-header">
-          <h2>Dashboard</h2>
+          <h2>Visualization</h2>
           {data?.generatedAt && (
-            <span className="dashboard-updated">
+            <span className="visualization-updated">
               Updated {new Date(data.generatedAt).toLocaleString()}
             </span>
           )}
         </div>
 
-        {status === "loading" && <p className="dashboard-muted">Loading dashboard...</p>}
+        {status === "loading" && <p className="visualization-muted">Loading visualization...</p>}
         {status === "error" && <p className="error-text">{error}</p>}
 
         {status === "ready" && (
           <>
-            <section className="dashboard-metrics" aria-label="Summary metrics">
+            <section className="visualization-metrics" aria-label="Summary metrics">
               {data.metrics.map((m) => (
-                <div className="dashboard-card" key={m.key}>
-                  <span className="dashboard-card__label">{m.label}</span>
-                  <span className="dashboard-card__value">{m.value}</span>
+                <div className="visualization-card" key={m.key}>
+                  <span className="visualization-card__label">{m.label}</span>
+                  <span className="visualization-card__value">{m.value}</span>
                 </div>
               ))}
             </section>
 
-            <section className="dashboard-section">
+            <section className="visualization-section">
               <h3>Hardware Usage</h3>
               {data.hardware.map((hw) => {
                 const out = hw.capacity - hw.available;
                 const pct = hw.capacity ? Math.round((out / hw.capacity) * 100) : 0;
                 return (
-                  <div className="project-row dashboard-hw-row" key={hw.name}>
-                    <span className="dashboard-hw-name">{hw.name}</span>
+                  <div className="project-row visualization-hw-row" key={hw.name}>
+                    <span className="visualization-hw-name">{hw.name}</span>
                     <div
-                      className="dashboard-bar"
+                      className="visualization-bar"
                       role="progressbar"
                       aria-valuenow={pct}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-label={`${hw.name} usage`}
                     >
-                      <div className="dashboard-bar__fill" style={{ width: `${pct}%` }} />
+                      <div className="visualization-bar__fill" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="dashboard-hw-count">
+                    <span className="visualization-hw-count">
                       {out} / {hw.capacity} out
                     </span>
                   </div>
@@ -97,15 +97,15 @@ function Dashboard() {
               })}
             </section>
 
-            <section className="dashboard-section">
+            <section className="visualization-section">
               <h3>Data Pipelines</h3>
-              <p className="dashboard-muted">
+              <p className="visualization-muted">
                 Pipeline data is not available yet. These rows are placeholders.
               </p>
               {data.pipelines.map((p) => (
                 <div className="project-row" key={p.id}>
                   <span>{p.name}</span>
-                  <span className={`dashboard-status dashboard-status--${p.status}`}>
+                  <span className={`visualization-status visualization-status--${p.status}`}>
                     {STATUS_LABELS[p.status] || p.status}
                   </span>
                 </div>
@@ -118,4 +118,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default Visualization;
