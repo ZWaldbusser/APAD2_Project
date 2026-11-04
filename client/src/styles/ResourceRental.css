@@ -13,6 +13,7 @@ body {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 650px;
 }
 
 .resource-table th {
@@ -38,13 +39,11 @@ body {
   border: 1px solid #ccc;
   border-radius: 4px;
   text-align: center;
+  margin-right: 8px;
 }
 
-.checkout-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 16px;
+.resource-main {
+  overflow-x: auto;
 }
 
 .checkout-submit-btn {

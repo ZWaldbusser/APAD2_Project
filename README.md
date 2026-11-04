@@ -93,3 +93,11 @@ Use this repo as one Heroku app that serves both the Flask API and the built Rea
 5. After deployment, open the app URL and verify the API with `/api/health/db`.
 
 For local development, keep using `npm run dev` at the repo root. The frontend still works against same-origin `/api` routes, and Vite continues to proxy to the local Flask server during development.
+
+## Local environment
+
+Copy `.env.example` to `.env` and set `HARDWARE_API_KEY` to the key supplied by
+the hardware service team. Hardware requests are proxied by Flask so the key
+never reaches the browser; each write includes a new `Idempotency-Key`.
+`MONGO_URI` can remain empty while testing hardware, but users and projects
+remain unavailable until MongoDB is configured.

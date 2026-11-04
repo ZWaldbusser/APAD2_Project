@@ -31,6 +31,11 @@ if not SECRET_KEY:
     raise RuntimeError("JWT_SECRET_KEY is not set in .env")
 
 
+@app.errorhandler(RuntimeError)
+def handle_runtime_error(error):
+    return jsonify({"error": str(error)}), 503
+
+
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -223,7 +228,10 @@ def join_project(project_id):
 
 @app.route("/api/hardware", methods=["GET"])
 def get_hardware():
-    return jsonify(hardware_db.get_all_hardware()), 200
+    try:
+        return jsonify(hardware_db.get_all_hardware(params=request.args)), 200
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 503
 
 
 @app.route("/api/hardware/checkout", methods=["POST"])
@@ -234,19 +242,18 @@ def checkout_hardware():
     if not data or "name" not in data or "quantity" not in data or "projectId" not in data:
         return jsonify({"error": "name, quantity, and projectId are required"}), 400
 
-    success, message = hardware_db.checkout_hardware(data["name"], data["quantity"])
+    if type(data["quantity"]) is not int or data["quantity"] <= 0:
+        return jsonify({"error": "quantity must be a positive integer"}), 400
+    if not projects_db.queryProject(data["projectId"]):
+        return jsonify({"error": "Project not found"}), 404
+
+    success, message = hardware_db.checkout_hardware(
+        data["name"], data["quantity"], data["projectId"], request.user_id,
+        hardware_id=data.get("hardwareId"),
+    )
 
     if not success:
         return jsonify({"error": message}), 400
-
-    project_updated = projects_db.checkOutHW(
-        data["projectId"], data["name"], data["quantity"], request.user_id
-    )
-
-    if not project_updated:
-        # roll back the pool decrement since the project side didn't apply
-        hardware_db.checkin_hardware(data["name"], data["quantity"])
-        return jsonify({"error": "Project not found"}), 404
 
     return jsonify({"message": message}), 200
 
@@ -259,22 +266,53 @@ def checkin_hardware():
     if not data or "name" not in data or "quantity" not in data or "projectId" not in data:
         return jsonify({"error": "name, quantity, and projectId are required"}), 400
 
+    if type(data["quantity"]) is not int or data["quantity"] <= 0:
+        return jsonify({"error": "quantity must be a positive integer"}), 400
     project = projects_db.queryProject(data["projectId"])
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
-    current_usage = project.get("hwSets", {}).get(data["name"], 0)
-    if current_usage < data["quantity"]:
-        return jsonify({"error": "Cannot return more than this project has checked out"}), 400
-
-    success, message = hardware_db.checkin_hardware(data["name"], data["quantity"])
+    success, message = hardware_db.checkin_hardware(
+        data["name"], data["quantity"], data["projectId"], request.user_id,
+        hardware_id=data.get("hardwareId"),
+    )
 
     if not success:
         return jsonify({"error": message}), 400
 
-    projects_db.checkInHW(data["projectId"], data["name"], data["quantity"], request.user_id)
-
     return jsonify({"message": message}), 200
+
+
+@app.route("/api/allocations", methods=["GET"])
+@token_required
+def get_allocations():
+    try:
+        status, payload = hardware_db.get_allocations(params=request.args)
+        return jsonify(payload), status
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 503
+
+
+@app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["PUT"])
+@token_required
+def set_allocation(hardware_id, project_id):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Allocation request body is required"}), 400
+    if type(data.get("quantity")) is not int or not 0 <= data["quantity"] <= 1000000:
+        return jsonify({"error": "quantity must be an integer between 0 and 1000000"}), 400
+    if type(data.get("expected_version")) is not int or not 1 <= data["expected_version"] <= 1000000:
+        return jsonify({"error": "expected_version must be an integer between 1 and 1000000"}), 400
+    if not isinstance(data.get("reason"), str) or not 3 <= len(data["reason"]) <= 1000:
+        return jsonify({"error": "reason must be between 3 and 1000 characters"}), 400
+    if not projects_db.queryProject(project_id):
+        return jsonify({"error": "Project not found"}), 404
+    status, payload = hardware_db.set_allocation(hardware_id, project_id, {
+        "expected_version": data["expected_version"],
+        "reason": data["reason"],
+        "quantity": data["quantity"],
+    })
+    return jsonify(payload), status
 
 
 if __name__ == "__main__":
