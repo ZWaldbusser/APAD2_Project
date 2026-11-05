@@ -18,7 +18,7 @@ function ProjectDashboard() {
   }, []);
 
   const handleCheckoutHardware = (projectID) => {
-    navigate(`/projects/${projectID}/resources`);
+    navigate(`/projects/${encodeURIComponent(projectID)}/resources`);
   };
 
   return (
