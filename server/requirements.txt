@@ -7,3 +7,4 @@ bcrypt
 argon2-cffi
 certifi
 gunicorn
+requests

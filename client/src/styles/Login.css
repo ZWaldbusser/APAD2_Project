@@ -17,6 +17,25 @@
   margin: 0 0 1rem;
 }
 
+.create-project-box {
+  width: min(100%, 560px);
+  box-sizing: border-box;
+}
+
+.create-project-box h2 {
+  margin-top: 1.5rem;
+  font-size: 18px;
+}
+
+.create-project-box input {
+  box-sizing: border-box;
+}
+
+.login-box button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .login-box label {
   display: block;
   margin-top: 1rem;

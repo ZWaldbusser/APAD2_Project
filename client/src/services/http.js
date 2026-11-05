@@ -1,13 +1,4 @@
 // Shared HTTP layer for all backend services.
-//
-// Every call from the frontend goes through request(). It decides:
-//   - mock mode or real mode (config.USE_MOCKS)
-//   - which base URL to use (one for each service)
-//   - the auth header
-//   - 401 handling
-//
-// It always returns a standard fetch Response, so pages can keep using
-// res.ok, res.status and res.json() in both modes.
 
 import { SERVICE_URLS, USE_MOCKS, MOCK_DELAY_MS } from "../config";
 import { handleMockRequest } from "../mocks";
@@ -49,7 +40,7 @@ export async function request(service, path, options = {}) {
       method,
       headers: {
         "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
       ...(body !== undefined && { body: JSON.stringify(body) }),
@@ -61,7 +52,7 @@ export async function request(service, path, options = {}) {
 }
 
 async function mockFetch(service, method, path, body, token) {
-  await new Promise((r) => setTimeout(r, MOCK_DELAY_MS));
+  await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY_MS));
   const { status, data } = handleMockRequest(service, method, path, body, token);
   console.debug(`[mock:${service}] ${method} ${path} -> ${status}`);
   return new Response(JSON.stringify(data), {
