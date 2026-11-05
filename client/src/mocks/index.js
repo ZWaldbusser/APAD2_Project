@@ -5,12 +5,14 @@
 import { usersRoutes } from "./users";
 import { projectsRoutes } from "./projects";
 import { hardwareRoutes } from "./hardware";
+import { visualizationRoutes } from "./visualization";
 import { err } from "./db";
 
 const routesByService = {
   users: usersRoutes,
   projects: projectsRoutes,
   hardware: hardwareRoutes,
+  visualization: visualizationRoutes,
 };
 
 export function handleMockRequest(service, method, path, body, token) {

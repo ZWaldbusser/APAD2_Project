@@ -18,6 +18,14 @@ function handleUnauthorized(res) {
   }
 }
 
+/**
+ * @param {"users"|"projects"|"hardware"|"visualization"} service  Service that owns the route
+ * @param {string} path                            Route path, e.g. "/api/projects"
+ * @param {{method?: string, body?: object, auth?: boolean, headers?: object}} [options]
+ *        body is a plain object. request() converts it to JSON.
+ *        auth=false means "do not redirect on 401" (login, signup, etc.).
+ * @returns {Promise<Response>}
+ */
 export async function request(service, path, options = {}) {
   const { method = "GET", body, auth = true, headers = {} } = options;
   const token = getToken();

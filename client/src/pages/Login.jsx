@@ -37,7 +37,7 @@ function Login() {
         showConfirmButton: false,
       });
 
-      navigate("/projects");
+      navigate("/visualization");
 
     } catch {
         // Error alert if server is unreachable
