@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { users, projects, hardware } from "../services";
 
 function CreateProject() {
-  const [projectID, setProjectID] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
-  const [description, setDescription] = useState("");
+  const [projectDesc, setProjectDesc] = useState("");
+  const [budget, setBudget] = useState("");
   const [owner, setOwner] = useState(null);
   const [error, setError] = useState("");
   const [hardwareList, setHardwareList] = useState([]);
@@ -41,8 +42,7 @@ function CreateProject() {
     return () => { active = false; };
   }, []);
 
-  // Availability check state
-  const [idStatus, setIdStatus] = useState("idle"); // idle | checking | available | taken
+  const [idStatus, setIdStatus] = useState("idle");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,90 +52,79 @@ function CreateProject() {
         navigate("/login");
         return;
       }
-      setOwner(user.id);
+      setOwner(user);
     }
     loadUser();
   }, [navigate]);
 
-  // Debounced uniqueness check whenever projectID changes
   useEffect(() => {
-    if (!projectID || projectCreated) {
+    if (!projectId) {
+      setIdStatus("idle");
       return;
     }
 
     let active = true;
     const timeoutId = setTimeout(async () => {
       try {
-        // Backend should expose a cheap existence check.
-        // e.g. GET /api/projects/:id returns 404 if free, 200 if taken.
-        const res = await projects.getProject(projectID);
-        if (!active) return;
+        const res = await projects.getProject(projectId);
         if (res.status === 404) {
           setIdStatus("available");
         } else if (res.ok) {
           setIdStatus("taken");
         } else {
-          // Unexpected error — don't block the user, let submit-time check catch it
           setIdStatus("idle");
         }
       } catch {
         if (active) setIdStatus("idle");
       }
-    }, 400); // debounce delay
+    }, 400);
 
-    return () => { active = false; clearTimeout(timeoutId); };
-  }, [projectID, projectCreated]);
+    return () => clearTimeout(timeoutId);
+  }, [projectId]);
 
   const handleCreate = async () => {
     if (submitting) return;
     setError("");
 
-    if (!projectID) {
+    if (!projectId) {
       setError("Project ID is required");
       return;
     }
-    if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(projectID)) {
-      setError("Project ID must be 1–100 characters using letters, numbers, _, ., :, @, or -.");
+    if (!projectName) {
+      setError("Project Name is required");
       return;
     }
     if (idStatus === "taken") {
       setError("Project ID must be unique");
       return;
     }
-
-    const selectedHardware = hardwareList.filter((item) => Number(quantities[item._id] || 0) > 0 && !allocatedIds.includes(item._id));
-    if (hardwareList.some((item) => {
-      if (allocatedIds.includes(item._id)) return false;
-      const quantity = Number(quantities[item._id] || 0);
-      const unallocated = item.unallocated ?? Math.max(item.total - item.reserved, 0);
-      return !Number.isInteger(quantity) || quantity < 0 || quantity > Math.min(unallocated, 1000000);
-    })) {
-      setError("Allocation quantities must be whole numbers within the unallocated stock.");
+    if (budget === "" || Number(budget) < 0) {
+      setError("Budget must be 0 or greater");
       return;
     }
 
-    setSubmitting(true);
-    let created = projectCreated;
     try {
-      if (!created) {
-        const res = await projects.createProject({
-          projectID,
-          name: projectName,
-          description,
-        });
-        const data = await res.json();
+      const res = await projects.createProject({
+        projectId,
+        projectName,
+        projectDesc,
+        projectCreatorId: owner.userid || owner.id,
+        budget: Number(budget),
+        hardwareList: [],
+      });
+      const data = await res.json();
 
-        if (!res.ok) {
-          // Backend is the final source of truth for uniqueness —
-          // handle the race where someone else grabbed the ID between
-          // the check above and this submit.
-          if (res.status === 409) {
-            setIdStatus("taken");
-            setError("Project ID must be unique");
-          } else {
-            setError(data.error || "Could not create project");
-          }
-          return;
+      if (!res.ok) {
+        if (res.status === 409) {
+          setIdStatus("taken");
+          setError("Project ID must be unique");
+        } else if (res.status === 422) {
+          const msg = Array.isArray(data.detail)
+            ? data.detail.map((d) => d.msg).join(", ")
+            : data.detail || "Validation error";
+          setError(msg);
+        } else {
+          setError(data.errorMessage || data.detail || "Could not create project");
         }
 
         created = true;
@@ -168,10 +157,8 @@ function CreateProject() {
       }
 
       navigate("/projects");
-    } catch (err) {
-      setError(`${created ? "Project created. Retry the remaining allocations. " : ""}${err.message || "Could not reach server"}`);
-    } finally {
-      setSubmitting(false);
+    } catch {
+      setError("Could not reach server");
     }
   };
 
@@ -189,7 +176,7 @@ function CreateProject() {
     taken: "error-text",
   }[idStatus];
 
-  const canSubmit = owner && projectID && idStatus !== "taken" && idStatus !== "checking" && !hardwareLoading && !hardwareError && !submitting;
+  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking";
 
   return (
     <div>
@@ -201,14 +188,8 @@ function CreateProject() {
           <input
             type="text"
             placeholder="Enter a unique project ID"
-            value={projectID}
-            disabled={submitting || projectCreated}
-            maxLength={100}
-            onChange={(e) => {
-              const id = e.target.value.trim();
-              setProjectID(id);
-              setIdStatus(id ? "checking" : "idle");
-            }}
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value.trim())}
           />
           {idHelperText && <p className={idHelperClass}>{idHelperText}</p>}
 
@@ -224,10 +205,18 @@ function CreateProject() {
           <label>Description</label>
           <input
             type="text"
-            placeholder="Enter description"
-            value={description}
-            disabled={submitting || projectCreated}
-            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Enter description (optional)"
+            value={projectDesc}
+            onChange={(e) => setProjectDesc(e.target.value)}
+          />
+
+          <label>Budget</label>
+          <input
+            type="number"
+            placeholder="Enter budget"
+            min="0"
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
           />
 
           <h2>Hardware Allocation</h2>
