@@ -1,52 +1,97 @@
-// Mock Projects service.
+// Mock Projects service — matches the new Project microservice API contract.
 
-import { db, newId, ok, err, requireUser } from "./db";
+import { db, ok, err, requireUser } from "./db";
 
-const findProject = (projectID) => db.projects.find((p) => p.projectID === projectID);
+const findProject = (projectId) => db.projects.find((p) => p.projectID === projectId);
 
 export const projectsRoutes = [
-  ["GET", /^\/api\/projects$/, (_m, _b, token) => {
-    const { userId, error } = requireUser(token);
-    if (error) return error;
-    return ok(
-      db.projects
-        .filter((p) => p.users.includes(userId))
-        // The list response has no hwSets (same as the monolith).
-        .map(({ id, name, description, projectID, users }) => ({ id, name, description, projectID, users }))
-    );
+  // Search projects: POST /projects/search_project
+  ["POST", /^\/projects\/search_project$/, (_m, body, _token) => {
+    let results = db.projects;
+
+    const filterById = body?.projectId && body.projectId.trim();
+    const filterByCreator = body?.projectCreatorId && body.projectCreatorId.trim();
+
+    if (filterById) {
+      results = results.filter((p) => p.projectID === filterById);
+    }
+    if (filterByCreator) {
+      results = results.filter((p) => p.projectCreatorId === filterByCreator);
+    }
+
+    return ok({
+      projectList: results.map(({ projectID, name, projectCreatorId }) => ({
+        projectId: projectID,
+        projectName: name,
+        projectCreatorId: projectCreatorId || "unknown",
+      })),
+    });
   }],
 
-  ["POST", /^\/api\/projects$/, (_m, body, token) => {
-    const { userId, error } = requireUser(token);
-    if (error) return error;
-    if (!body?.projectID || body.name === undefined || body.description === undefined)
-      return err(400, "name, description, and projectID are required");
-    if (findProject(body.projectID)) return err(409, "projectID already exists");
+  // Create project: POST /projects/create_project
+  ["POST", /^\/projects\/create_project$/, (_m, body, _token) => {
+    if (!body?.projectId || !body?.projectName || body.budget === undefined || !body?.projectCreatorId) {
+      return err(422, "Missing required fields");
+    }
+    if (findProject(body.projectId)) return err(500, "Duplicate projectId");
+
     db.projects.push({
-      id: newId("p"),
-      projectID: body.projectID,
-      name: body.name,
-      description: body.description,
-      users: [userId],
+      id: `p${Date.now()}`,
+      projectID: body.projectId,
+      name: body.projectName,
+      description: body.projectDesc || "",
+      projectCreatorId: body.projectCreatorId,
+      budget: body.budget,
+      hardwareList: body.hardwareList || [],
+      users: [],
       hwSets: {},
     });
-    return ok({ message: "Project created", projectID: body.projectID }, 201);
+    return ok({ success: true, errorMessage: "" });
   }],
 
-  ["POST", /^\/api\/projects\/([^/]+)\/join$/, (m, _b, token) => {
-    const { userId, error } = requireUser(token);
-    if (error) return error;
-    const project = findProject(decodeURIComponent(m[1]));
-    if (!project) return err(404, "Project not found");
-    if (project.users.includes(userId)) return err(409, "You are already a member of this project");
-    project.users.push(userId);
-    return ok({ message: "Joined project" });
+  // Join project: POST /projects/join_project
+  ["POST", /^\/projects\/join_project$/, (_m, body, _token) => {
+    if (!body?.projectId || !body?.projectCreatorId || !body?.userId) {
+      return err(422, "Missing required fields");
+    }
+    const project = findProject(body.projectId);
+    if (!project) return { status: 404, data: { detail: "Project not found" } };
+    if (project.users.includes(body.userId)) {
+      return { status: 409, data: { detail: "User already joined this project" } };
+    }
+    project.users.push(body.userId);
+    return ok({ success: true, errorMessage: "" });
   }],
 
-  // No auth on this route in the monolith. Kept the same.
-  ["GET", /^\/api\/projects\/([^/]+)$/, (m) => {
+  // Leave project: POST /projects/leave_project
+  ["POST", /^\/projects\/leave_project$/, (_m, body, _token) => {
+    if (!body?.projectId || !body?.projectCreatorId || !body?.userId) {
+      return err(422, "Missing required fields");
+    }
+    const project = findProject(body.projectId);
+    if (!project) return { status: 404, data: { detail: "Project not found" } };
+    const idx = project.users.indexOf(body.userId);
+    if (idx === -1) {
+      return { status: 409, data: { detail: "User is not a member of this project" } };
+    }
+    project.users.splice(idx, 1);
+    return ok({ success: true, errorMessage: "" });
+  }],
+
+  // Project detail: GET /projects/{projectId}
+  ["GET", /^\/projects\/([^/]+)$/, (m) => {
     const project = findProject(decodeURIComponent(m[1]));
-    if (!project) return err(404, "Project not found");
-    return ok({ ...project, hwSets: { ...project.hwSets } });
+    if (!project) return { status: 404, data: { detail: "Project not found" } };
+    return ok({
+      projectInfo: {
+        projectId: project.projectID,
+        projectName: project.name,
+        projectDesc: project.description || "",
+        projectCreatorId: project.projectCreatorId || "unknown",
+        budget: project.budget || 0,
+        hardwareList: project.hardwareList || [],
+        joined_users: project.users || [],
+      },
+    });
   }],
 ];
