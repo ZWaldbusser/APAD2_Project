@@ -1,19 +1,32 @@
-// Projects service client.
+// Projects service client — matches the new Project microservice API.
 
 import { request } from "./http";
 
 const enc = encodeURIComponent;
 
-export const listMyProjects = () => request("projects", "/api/projects");
-
-export const getProject = (projectID) =>
-  request("projects", `/api/projects/${enc(projectID)}`);
-
-export const createProject = ({ projectID, name, description }) =>
-  request("projects", "/api/projects", {
+export const createProject = ({ projectId, projectName, projectDesc, projectCreatorId, budget, hardwareList }) =>
+  request("projects", "/projects/create_project", {
     method: "POST",
-    body: { projectID, name, description },
+    body: { projectId, projectName, projectDesc: projectDesc || "", projectCreatorId, budget, hardwareList: hardwareList || [] },
   });
 
-export const joinProject = (projectID) =>
-  request("projects", `/api/projects/${enc(projectID)}/join`, { method: "POST" });
+export const joinProject = ({ projectId, projectCreatorId, userId }) =>
+  request("projects", "/projects/join_project", {
+    method: "POST",
+    body: { projectId, projectCreatorId, userId },
+  });
+
+export const leaveProject = ({ projectId, projectCreatorId, userId }) =>
+  request("projects", "/projects/leave_project", {
+    method: "POST",
+    body: { projectId, projectCreatorId, userId },
+  });
+
+export const searchProjects = ({ projectId, projectCreatorId } = {}) =>
+  request("projects", "/projects/search_project", {
+    method: "POST",
+    body: { projectId: projectId || null, projectCreatorId: projectCreatorId || null },
+  });
+
+export const getProject = (projectId) =>
+  request("projects", `/projects/${enc(projectId)}`);
