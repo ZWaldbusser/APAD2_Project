@@ -11,7 +11,7 @@ import JoinProject from "./pages/JoinProject";
 import PageHeader from "./components/PageHeader";
 import ResourceRental from "./pages/ResourceRental";
 import ProjectDashboard from "./pages/ProjectDashboard";
-import Visualization from "./pages/Visualization";
+import ProjectDetail from "./pages/ProjectDetail";
 
 function App() {
   return (
@@ -38,6 +38,9 @@ function App() {
           } />
           <Route path="/joinproject" element={
             <ProtectedRoute><JoinProject /></ProtectedRoute>
+          } />
+          <Route path="/projects/:projectId" element={
+            <ProtectedRoute><ProjectDetail /></ProtectedRoute>
           } />
           <Route path="/projects/:projectId/resources" element={
             <ProtectedRoute><ResourceRental /></ProtectedRoute>
