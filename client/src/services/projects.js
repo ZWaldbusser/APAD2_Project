@@ -1,32 +1,54 @@
-// Projects service client — matches the new Project microservice API.
+// Projects service client — matches Projects API v1.4 contract.
 
 import { request } from "./http";
 
 const enc = encodeURIComponent;
 
-export const createProject = ({ projectId, projectName, projectDesc, projectCreatorId, budget, hardwareList }) =>
+// --- Project CRUD ---
+
+export const createProject = ({ orgId, projectId, projectName, projectDesc, creatorId, budget, hardwareList }) =>
   request("projects", "/projects/create_project", {
     method: "POST",
-    body: { projectId, projectName, projectDesc: projectDesc || "", projectCreatorId, budget, hardwareList: hardwareList || [] },
+    body: { orgId, projectId, projectName, projectDesc: projectDesc || "", creatorId, budget, hardwareList: hardwareList || [] },
   });
 
-export const joinProject = ({ projectId, projectCreatorId, userId }) =>
+export const joinProject = ({ orgId, projectId, userId }) =>
   request("projects", "/projects/join_project", {
     method: "POST",
-    body: { projectId, projectCreatorId, userId },
+    body: { orgId, projectId, userId },
   });
 
-export const leaveProject = ({ projectId, projectCreatorId, userId }) =>
+export const leaveProject = ({ orgId, projectId, userId }) =>
   request("projects", "/projects/leave_project", {
     method: "POST",
-    body: { projectId, projectCreatorId, userId },
+    body: { orgId, projectId, userId },
   });
 
-export const searchProjects = ({ projectId, projectCreatorId } = {}) =>
+export const searchProjects = ({ orgId, projectId } = {}) =>
   request("projects", "/projects/search_project", {
     method: "POST",
-    body: { projectId: projectId || null, projectCreatorId: projectCreatorId || null },
+    body: { orgId: orgId || null, projectId: projectId || null },
   });
 
-export const getProject = (projectId) =>
-  request("projects", `/projects/${enc(projectId)}`);
+export const getProject = (projectId, orgId) =>
+  request("projects", `/projects/${enc(projectId)}?orgId=${enc(orgId)}`);
+
+// --- Price context ---
+
+export const getUnitPrice = (category) =>
+  request("projects", "/get_unit_price", {
+    method: "POST",
+    body: { category },
+  });
+
+export const getDepartmentSpend = (keyword) =>
+  request("projects", "/get_department_spend", {
+    method: "POST",
+    body: { keyword },
+  });
+
+export const getBudgetContext = ({ orgId, budget, items }) =>
+  request("projects", "/get_budget_context", {
+    method: "POST",
+    body: { orgId, budget, items },
+  });
