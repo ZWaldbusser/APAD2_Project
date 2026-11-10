@@ -1,0 +1,17 @@
+meta {
+  name: Get Department Spend
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{projectsUrl}}/get_department_spend
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "keyword": "computer"
+  }
+}

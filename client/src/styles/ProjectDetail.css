@@ -1,0 +1,116 @@
+.project-detail-main {
+  padding: 20px 30px;
+}
+
+.project-detail-main h2 {
+  margin: 0 0 20px;
+}
+
+.project-detail-card {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.project-detail-card p {
+  margin: 8px 0;
+  font-size: 15px;
+  color: #333;
+}
+
+.project-detail-card p strong {
+  color: #555;
+}
+
+.members-section {
+  margin-top: 24px;
+}
+
+.members-section h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: #555;
+}
+
+.members-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.members-list li {
+  padding: 8px 12px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.hardware-section {
+  margin-top: 24px;
+}
+
+.hardware-section h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: #555;
+}
+
+.hardware-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.hardware-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #ddd;
+  font-size: 14px;
+  color: #555;
+}
+
+.hardware-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.project-detail-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.back-btn {
+  padding: 8px 24px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  color: black;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.back-btn:hover {
+  background: #f5f5f5;
+}
+
+.leave-btn {
+  padding: 8px 24px;
+  border: 1px solid #d32f2f;
+  border-radius: 6px;
+  background: white;
+  color: #d32f2f;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.leave-btn:hover {
+  background: #fdecea;
+}
+
+.not-member-msg {
+  text-align: center;
+  margin-top: 40px;
+  color: #555;
+}

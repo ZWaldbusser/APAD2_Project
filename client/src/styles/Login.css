@@ -44,7 +44,8 @@
   color: #555;
 }
 
-.login-box input {
+.login-box input,
+.login-box select {
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;

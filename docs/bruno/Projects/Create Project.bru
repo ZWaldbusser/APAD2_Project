@@ -5,16 +5,24 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/api/projects
+  url: {{projectsUrl}}/projects/create_project
   body: json
   auth: none
 }
 
 body:json {
   {
-    "name": "Test Project",
-    "description": "A test project",
-    "projectID": "proj001",
-    "owner": "testuser"
+    "orgId": "AUS",
+    "projectId": "P001",
+    "projectName": "Lab Refresh",
+    "projectDesc": "Replace lab laptops",
+    "creatorId": "user1",
+    "budget": 50000,
+    "hardwareList": [
+      {
+        "hardwareId": "HW001",
+        "allocation": 20
+      }
+    ]
   }
 }

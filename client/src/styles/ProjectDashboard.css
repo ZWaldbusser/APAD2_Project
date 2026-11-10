@@ -45,6 +45,44 @@ body {
   margin-top: 10px;
 }
 
+.search-bar {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+.project-name-link {
+  color: #0645ad;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.project-name-link:hover {
+  text-decoration: underline;
+}
+
+.org-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  background: #e8e8e8;
+  color: #555;
+  vertical-align: middle;
+}
+
+.no-results {
+  text-align: center;
+  color: #888;
+  margin-top: 20px;
+  font-size: 14px;
+}
+
 .checkout-btn {
   width: auto !important;
   background: none !important;
