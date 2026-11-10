@@ -115,11 +115,12 @@ function CreateProject() {
       return;
     }
 
-    const selectedHardware = hardwareList.filter((item) => Number(quantities[item._id] || 0) > 0 && !allocatedIds.includes(item._id));
+    const getId = (item) => item._id || item.id;
+    const selectedHardware = hardwareList.filter((item) => Number(quantities[getId(item)] || 0) > 0 && !allocatedIds.includes(getId(item)));
     if (hardwareList.some((item) => {
-      if (allocatedIds.includes(item._id)) return false;
-      const quantity = Number(quantities[item._id] || 0);
-      const unallocated = item.unallocated ?? Math.max(item.total - item.reserved, 0);
+      if (allocatedIds.includes(getId(item))) return false;
+      const quantity = Number(quantities[getId(item)] || 0);
+      const unallocated = item.unallocated ?? Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
       return !Number.isInteger(quantity) || quantity < 0 || quantity > Math.min(unallocated, 1000000);
     })) {
       setError("Allocation quantities must be whole numbers within the unallocated stock.");
@@ -166,16 +167,16 @@ function CreateProject() {
       const failures = [];
       for (const item of selectedHardware) {
         try {
-          const current = currentHardware.find((hw) => hw._id === item._id);
+          const current = currentHardware.find((hw) => (hw._id || hw.id) === getId(item));
           if (!current) throw new Error("Hardware is no longer available");
           await hardware.responseData(await hardware.setAllocation({
-            hardwareId: item._id,
+            hardwareId: getId(item),
             projectId,
             expectedVersion: current.version,
-            quantity: Number(quantities[item._id]),
+            quantity: Number(quantities[getId(item)]),
             reason: `Initial allocation for project ${projectId}`,
           }));
-          setAllocatedIds((ids) => [...ids, item._id]);
+          setAllocatedIds((ids) => [...ids, getId(item)]);
         } catch (err) {
           failures.push(`${item.name}: ${err.message}`);
         }
@@ -271,20 +272,21 @@ function CreateProject() {
           {hardwareError && <div role="alert"><p className="error-text">{hardwareError}</p><button onClick={loadHardware}>Retry loading hardware</button></div>}
           {!hardwareLoading && !hardwareError && hardwareList.length === 0 && <p>No hardware is available.</p>}
           {hardwareList.map((item) => {
-            const unallocated = item.unallocated ?? Math.max(item.total - item.reserved, 0);
-            const allocated = allocatedIds.includes(item._id);
+            const itemId = item._id || item.id;
+            const unallocated = item.unallocated ?? Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
+            const allocated = allocatedIds.includes(itemId);
             return (
-              <div key={item._id}>
-                <label htmlFor={`allocation-${item._id}`}>{item.name} ({item.asset_tag || item._id}) — {unallocated} unallocated{allocated ? " — Allocated" : ""}</label>
+              <div key={itemId}>
+                <label htmlFor={`allocation-${itemId}`}>{item.name} ({item.asset_tag || itemId}) — {unallocated} unallocated{allocated ? " — Allocated" : ""}</label>
                 <input
-                  id={`allocation-${item._id}`}
+                  id={`allocation-${itemId}`}
                   type="number"
                   min="0"
                   max={Math.min(unallocated, 1000000)}
                   step="1"
-                  value={quantities[item._id] ?? 0}
+                  value={quantities[itemId] ?? 0}
                   disabled={submitting || allocated}
-                  onChange={(e) => setQuantities({ ...quantities, [item._id]: e.target.value })}
+                  onChange={(e) => setQuantities({ ...quantities, [itemId]: e.target.value })}
                 />
               </div>
             );
