@@ -6,7 +6,8 @@ import { usersRoutes } from "./users";
 import { projectsRoutes } from "./projects";
 import { hardwareRoutes } from "./hardware";
 import { visualizationRoutes } from "./visualization";
-import { err } from "./db";
+import { err, ok } from "./db";
+import { getProjectFixture } from "./preview";
 
 const routesByService = {
   users: usersRoutes,
@@ -20,10 +21,25 @@ export function handleMockRequest(service, method, path, body, token) {
   if (!routes) return err(500, `Unknown mock service: ${service}`);
 
   const cleanPath = path.split("?")[0];
+  if (service === "projects") {
+    const fixture = getProjectFixture();
+    const isList =
+      method === "POST" && cleanPath === "/projects/search_project";
+    const isDetail = method === "GET" && cleanPath.startsWith("/projects/");
+    if (fixture === "empty" && isList) return ok({ projectList: [] });
+    if (fixture === "unavailable" && (isList || isDetail))
+      return err(503, "Sample service outage");
+    if (fixture === "not-found" && isDetail)
+      return err(404, "Sample missing project");
+  }
   for (const [routeMethod, pattern, handler] of routes) {
     if (routeMethod !== method) continue;
     const match = cleanPath.match(pattern);
-    if (match) return handler(match, body, token);
+    if (match) {
+      // Match the route without its query, but retain the original agency context.
+      match.input = path;
+      return handler(match, body, token);
+    }
   }
   return err(404, `[mock:${service}] No route for ${method} ${cleanPath}`);
 }

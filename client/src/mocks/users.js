@@ -22,7 +22,7 @@ export const usersRoutes = [
     const { userId, error } = requireUser(token);
     if (error) return error;
     const user = db.users.find((u) => u.id === userId);
-    return ok({ id: user.id, userid: user.userid });
+    return ok({ id: user.id, userid: user.userid, ...(user.agencyCode && { agencyCode: user.agencyCode }) });
   }],
 
   ["POST", /^\/api\/forgot_password$/, (_m, body) => {

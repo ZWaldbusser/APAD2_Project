@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -13,39 +13,47 @@ import ResourceRental from "./pages/ResourceRental";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import Visualization from "./pages/Visualization";
 import ProjectDetail from "./pages/ProjectDetail";
+import WorkspaceProvider from "./context/WorkspaceProvider";
+import WorkspaceLayout from "./components/WorkspaceLayout";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <PageHeader title="HaaS Hub" />
         <Routes>
-          <Route path="/" element={<AuthEntryPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<CreateUser />} />
-          <Route path="/forgotpassword" element={<ForgotPassword />} />
-
-          <Route path="/visualization" element={
-            <ProtectedRoute><Visualization /></ProtectedRoute>
-          } />
-          <Route path="/projects" element={
-            <ProtectedRoute><ProjectDashboard /></ProtectedRoute>
-          } />
-          <Route path="/userportal" element={
-            <ProtectedRoute><UserPortal /></ProtectedRoute>
-          } />
-          <Route path="/createproject" element={
-            <ProtectedRoute><CreateProject /></ProtectedRoute>
-          } />
-          <Route path="/joinproject" element={
-            <ProtectedRoute><JoinProject /></ProtectedRoute>
-          } />
-          <Route path="/projects/:projectId" element={
-            <ProtectedRoute><ProjectDetail /></ProtectedRoute>
-          } />
-          <Route path="/projects/:projectId/resources" element={
-            <ProtectedRoute><ResourceRental /></ProtectedRoute>
-          } />
+          <Route
+            element={
+              <>
+                <PageHeader title="HaaS Hub" />
+                <Outlet />
+              </>
+            }
+          >
+            <Route path="/" element={<AuthEntryPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<CreateUser />} />
+            <Route path="/forgotpassword" element={<ForgotPassword />} />
+          </Route>
+          <Route
+            element={
+              <ProtectedRoute>
+                <WorkspaceProvider>
+                  <WorkspaceLayout />
+                </WorkspaceProvider>
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/visualization" element={<Visualization />} />
+            <Route path="/projects" element={<ProjectDashboard />} />
+            <Route path="/userportal" element={<UserPortal />} />
+            <Route path="/createproject" element={<CreateProject />} />
+            <Route path="/joinproject" element={<JoinProject />} />
+            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route
+              path="/projects/:projectId/resources"
+              element={<ResourceRental />}
+            />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
