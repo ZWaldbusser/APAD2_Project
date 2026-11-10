@@ -10,33 +10,23 @@ function ResourceRental() {
   const [checkoutQty, setCheckoutQty] = useState({});
   const [error, setError] = useState("");
 
-  const loadData = () => {
-    Promise.all([
-      hardware.listHardware().then((res) => res.json()),
-      projects.getProject(projectId).then((res) => res.json()),
-    ]).then(([hwData, projData]) => {
-      setHardwareList(hwData);
-      // v1.4: projectInfo wraps the response; hardwareList items have hardwareId + allocation
-      const info = projData.projectInfo || projData;
-      const hwSets = {};
-      if (info.hardwareList) {
-        info.hardwareList.forEach((item) => {
-          hwSets[item.hardwareId] = item.allocation || item.capacity || 0;
-        });
-      } else if (info.hwSets) {
-        Object.assign(hwSets, info.hwSets);
-      }
-      setProjectHwSets(hwSets);
-      const initCheckin = {};
-      const initCheckout = {};
-      hwData.forEach((hw) => {
-        initCheckin[hw.name] = 0;
-        initCheckout[hw.name] = 0;
-      });
-      setCheckinQty(initCheckin);
-      setCheckoutQty(initCheckout);
-    });
-  };
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const fetchRows = useCallback(async () => {
+    const [allocations, catalog] = await Promise.all([
+      hardware.getProjectAllocations(projectId),
+      hardware.getAllHardware(),
+    ]);
+    const byId = new Map(catalog.map((item) => [item._id, item]));
+    return allocations.map((allocation) => ({
+      ...allocation,
+      name: byId.get(allocation.hardware_id)?.name || allocation.hardware_id,
+      allocated: allocation.quantity,
+      checkedOut: allocation.out,
+      available: Math.max(allocation.quantity - allocation.out, 0),
+    }));
+  }, [projectId]);
 
   useEffect(() => {
     let active = true;

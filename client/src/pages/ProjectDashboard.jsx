@@ -19,7 +19,7 @@ function ProjectDashboard() {
   }, []);
 
   const handleCheckoutHardware = (projectId) => {
-    navigate(`/projects/${projectId}/resources`);
+    navigate(`/projects/${encodeURIComponent(projectId)}/resources`);
   };
 
   const filteredProjects = projects.filter((p) => {

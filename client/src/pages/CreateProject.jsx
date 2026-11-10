@@ -65,7 +65,7 @@ function CreateProject() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!projectId) {
+    if (!projectId || projectCreated) {
       setIdStatus("idle");
       return;
     }
@@ -74,6 +74,7 @@ function CreateProject() {
     const timeoutId = setTimeout(async () => {
       try {
         const res = await projects.getProject(projectId, orgId);
+        if (!active) return;
         if (res.status === 404) {
           setIdStatus("available");
         } else if (res.ok) {
@@ -86,8 +87,8 @@ function CreateProject() {
       }
     }, 400);
 
-    return () => clearTimeout(timeoutId);
-  }, [projectId, orgId]);
+    return () => { active = false; clearTimeout(timeoutId); };
+  }, [projectId, orgId, projectCreated]);
 
   const handleCreate = async () => {
     if (submitting) return;
@@ -95,6 +96,10 @@ function CreateProject() {
 
     if (!projectId) {
       setError("Project ID is required");
+      return;
+    }
+    if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(projectId)) {
+      setError("Project ID must be 1–100 characters using letters, numbers, _, ., :, @, or -.");
       return;
     }
     if (!projectName) {
@@ -110,29 +115,45 @@ function CreateProject() {
       return;
     }
 
-    try {
-      const res = await projects.createProject({
-        orgId,
-        projectId,
-        projectName,
-        projectDesc,
-        creatorId: owner.userid || owner.id,
-        budget: Number(budget),
-        hardwareList: [],
-      });
-      const data = await res.json();
+    const selectedHardware = hardwareList.filter((item) => Number(quantities[item._id] || 0) > 0 && !allocatedIds.includes(item._id));
+    if (hardwareList.some((item) => {
+      if (allocatedIds.includes(item._id)) return false;
+      const quantity = Number(quantities[item._id] || 0);
+      const unallocated = item.unallocated ?? Math.max(item.total - item.reserved, 0);
+      return !Number.isInteger(quantity) || quantity < 0 || quantity > Math.min(unallocated, 1000000);
+    })) {
+      setError("Allocation quantities must be whole numbers within the unallocated stock.");
+      return;
+    }
 
-      if (!res.ok) {
-        if (res.status === 409) {
-          setIdStatus("taken");
-          setError("Project ID already exists for this agency");
-        } else if (res.status === 422) {
-          const msg = Array.isArray(data.detail)
-            ? data.detail.map((d) => d.msg).join(", ")
-            : data.errorMessage || "Validation error";
-          setError(msg);
-        } else {
-          setError(data.errorMessage || "Could not create project");
+    setSubmitting(true);
+    let created = projectCreated;
+    try {
+      if (!created) {
+        const res = await projects.createProject({
+          orgId,
+          projectId,
+          projectName,
+          projectDesc,
+          creatorId: owner.userid || owner.id,
+          budget: Number(budget),
+          hardwareList: [],
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 409) {
+            setIdStatus("taken");
+            setError("Project ID already exists for this agency");
+          } else if (res.status === 422) {
+            const msg = Array.isArray(data.detail)
+              ? data.detail.map((d) => d.msg).join(", ")
+              : data.errorMessage || "Validation error";
+            setError(msg);
+          } else {
+            setError(data.errorMessage || "Could not create project");
+          }
+          return;
         }
 
         created = true;
@@ -149,10 +170,10 @@ function CreateProject() {
           if (!current) throw new Error("Hardware is no longer available");
           await hardware.responseData(await hardware.setAllocation({
             hardwareId: item._id,
-            projectId: projectID,
+            projectId,
             expectedVersion: current.version,
             quantity: Number(quantities[item._id]),
-            reason: `Initial allocation for project ${projectID}`,
+            reason: `Initial allocation for project ${projectId}`,
           }));
           setAllocatedIds((ids) => [...ids, item._id]);
         } catch (err) {
@@ -165,8 +186,10 @@ function CreateProject() {
       }
 
       navigate("/projects");
-    } catch {
-      setError("Could not reach server");
+    } catch (err) {
+      setError(`${created ? "Project created. Retry the remaining allocations. " : ""}${err.message || "Could not reach server"}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -184,7 +207,7 @@ function CreateProject() {
     taken: "error-text",
   }[idStatus];
 
-  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking";
+  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking" && !hardwareLoading && !hardwareError && !submitting;
 
   return (
     <div>
@@ -204,7 +227,13 @@ function CreateProject() {
             type="text"
             placeholder="Enter a unique project ID"
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value.trim())}
+            disabled={submitting || projectCreated}
+            maxLength={100}
+            onChange={(e) => {
+              const id = e.target.value.trim();
+              setProjectId(id);
+              setIdStatus(id ? "checking" : "idle");
+            }}
           />
           {idHelperText && <p className={idHelperClass}>{idHelperText}</p>}
 
@@ -222,6 +251,7 @@ function CreateProject() {
             type="text"
             placeholder="Enter description (optional)"
             value={projectDesc}
+            disabled={submitting || projectCreated}
             onChange={(e) => setProjectDesc(e.target.value)}
           />
 
@@ -231,6 +261,7 @@ function CreateProject() {
             placeholder="Enter budget"
             min="0"
             value={budget}
+            disabled={submitting || projectCreated}
             onChange={(e) => setBudget(e.target.value)}
           />
 

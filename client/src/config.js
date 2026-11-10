@@ -24,6 +24,7 @@ export const SERVICE_URLS = {
   users: clean(env.VITE_USERS_URL) || PROD_URLS.users || API_BASE_URL,
   projects: clean(env.VITE_PROJECTS_URL) || PROD_URLS.projects || API_BASE_URL,
   hardware: clean(env.VITE_HARDWARE_URL) || PROD_URLS.hardware || API_BASE_URL,
+  visualization: clean(env.VITE_VISUALIZATION_URL) || API_BASE_URL,
 };
 
 // Mocks are ON unless VITE_USE_MOCKS is set to "false".
