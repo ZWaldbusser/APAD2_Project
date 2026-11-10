@@ -20,10 +20,13 @@ export const API_BASE_URL = clean(env.VITE_API_BASE_URL);
 // Production URLs — update here when a backend team deploys.
 // Leave empty ("") until the team provides their URL.
 // ──────────────────────────────────────────────────────────────
+// In dev mode, use Vite proxy to avoid CORS issues with external APIs.
+const isDev = env.DEV;
+
 const PROD_URLS = {
   users:         "",
-  projects:      "https://projects-api.jollypond-07d76cbc.northcentralus.azurecontainerapps.io",
-  hardware:      "https://hardware-app.nicecoast-3095250d.westus.azurecontainerapps.io",
+  projects:      isDev ? "/proj-proxy" : "https://projects-api.jollypond-07d76cbc.northcentralus.azurecontainerapps.io",
+  hardware:      isDev ? "/hw-proxy" : "https://hardware-app.nicecoast-3095250d.westus.azurecontainerapps.io",
   visualization: "",
 };
 

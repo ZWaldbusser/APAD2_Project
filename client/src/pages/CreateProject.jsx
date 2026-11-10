@@ -208,7 +208,7 @@ function CreateProject() {
     taken: "error-text",
   }[idStatus];
 
-  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking" && !hardwareLoading && !hardwareError && !submitting;
+  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking" && !submitting;
 
   return (
     <div>

@@ -47,7 +47,7 @@ export async function request(service, path, options = {}) {
     });
   }
 
-  if (auth) handleUnauthorized(res);
+  if (auth && service === "users") handleUnauthorized(res);
   return res;
 }
 
