@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { projects as projectsApi, users } from "../services";
 import Swal from "sweetalert2";
 import "../styles/ProjectDetail.css";
 
 function ProjectDetail() {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const orgId = searchParams.get("orgId") || "AUS";
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -21,7 +23,7 @@ function ProjectDetail() {
       }
       setCurrentUser(user);
 
-      const res = await projectsApi.getProject(projectId);
+      const res = await projectsApi.getProject(projectId, orgId);
       if (res.status === 404) {
         setNotFound(true);
         setLoading(false);
@@ -36,7 +38,7 @@ function ProjectDetail() {
       setLoading(false);
     }
     load();
-  }, [projectId, navigate]);
+  }, [projectId, orgId, navigate]);
 
   const userId = currentUser?.userid || currentUser?.id;
   const isMember = project?.joined_users?.includes(userId);
@@ -55,8 +57,8 @@ function ProjectDetail() {
 
     try {
       const res = await projectsApi.leaveProject({
+        orgId: project.orgId,
         projectId: project.projectId,
-        projectCreatorId: project.projectCreatorId,
         userId,
       });
       const data = await res.json();
@@ -65,7 +67,7 @@ function ProjectDetail() {
         Swal.fire({
           icon: "error",
           title: "Error",
-          text: data.detail || data.errorMessage || "Could not leave project",
+          text: data.errorMessage || "Could not leave project",
         });
         return;
       }
@@ -130,9 +132,10 @@ function ProjectDetail() {
 
         <div className="project-detail-card">
           <p><strong>Project ID:</strong> {project.projectId}</p>
+          <p><strong>Agency:</strong> {project.orgId}</p>
           <p><strong>Description:</strong> {project.projectDesc || "No description"}</p>
-          <p><strong>Created by:</strong> {project.projectCreatorId}</p>
-          <p><strong>Budget:</strong> {project.budget}</p>
+          <p><strong>Created by:</strong> {project.creatorId}</p>
+          <p><strong>Budget:</strong> ${project.budget?.toLocaleString()}</p>
         </div>
 
         <div className="members-section">
@@ -154,15 +157,15 @@ function ProjectDetail() {
             <table className="hardware-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Capacity</th>
+                  <th>Hardware ID</th>
+                  <th>Allocation</th>
                 </tr>
               </thead>
               <tbody>
                 {project.hardwareList.map((hw) => (
                   <tr key={hw.hardwareId}>
-                    <td>{hw.hardwareName}</td>
-                    <td>{hw.capacity}</td>
+                    <td>{hw.hardwareId}</td>
+                    <td>{hw.allocation}</td>
                   </tr>
                 ))}
               </tbody>

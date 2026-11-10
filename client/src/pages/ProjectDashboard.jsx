@@ -26,7 +26,8 @@ function ProjectDashboard() {
     const term = searchTerm.toLowerCase();
     return (
       p.projectName.toLowerCase().includes(term) ||
-      p.projectId.toLowerCase().includes(term)
+      p.projectId.toLowerCase().includes(term) ||
+      (p.orgId || "").toLowerCase().includes(term)
     );
   });
 
@@ -44,19 +45,20 @@ function ProjectDashboard() {
         <input
           className="search-bar"
           type="text"
-          placeholder="Search by project name or ID..."
+          placeholder="Search by project name, ID, or agency..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
 
         <div className="project-list">
           {filteredProjects.map((project) => (
-            <div className="project-row" key={project.projectId}>
+            <div className="project-row" key={`${project.orgId}-${project.projectId}`}>
               <span
                 className="project-name-link"
-                onClick={() => navigate(`/projects/${project.projectId}`)}
+                onClick={() => navigate(`/projects/${project.projectId}?orgId=${project.orgId}`)}
               >
                 {project.projectName}
+                <span className="org-badge">{project.orgId}</span>
               </span>
               <span>
                 <button className="checkout-btn" onClick={() => handleCheckoutHardware(project.projectId)}>Checkout Hardware</button>

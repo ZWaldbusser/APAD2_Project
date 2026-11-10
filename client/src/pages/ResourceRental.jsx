@@ -16,12 +16,12 @@ function ResourceRental() {
       projects.getProject(projectId).then((res) => res.json()),
     ]).then(([hwData, projData]) => {
       setHardwareList(hwData);
-      // New API wraps response in projectInfo and uses hardwareList instead of hwSets
+      // v1.4: projectInfo wraps the response; hardwareList items have hardwareId + allocation
       const info = projData.projectInfo || projData;
       const hwSets = {};
       if (info.hardwareList) {
         info.hardwareList.forEach((item) => {
-          hwSets[item.hardwareName] = item.capacity;
+          hwSets[item.hardwareId] = item.allocation || item.capacity || 0;
         });
       } else if (info.hwSets) {
         Object.assign(hwSets, info.hwSets);
