@@ -1,0 +1,24 @@
+meta {
+  name: Get Budget Context
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{projectsProdUrl}}/get_budget_context
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "orgId": "AUS",
+    "budget": 20000,
+    "items": [
+      {
+        "description": "LIGHTS, EMERGENCY",
+        "quantity": 20
+      }
+    ]
+  }
+}

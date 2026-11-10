@@ -1,18 +1,19 @@
 meta {
-  name: Add User to Project
+  name: Join Project
   type: http
-  seq: 4
+  seq: 2
 }
 
-get {
-  url: {{baseUrl}}/api/project_add_user
+post {
+  url: {{projectsProdUrl}}/projects/join_project
   body: json
   auth: none
 }
 
 body:json {
   {
-    "projectID": "proj001",
-    "userID": "testuser"
+    "orgId": "AUS",
+    "projectId": "P001",
+    "userId": "user2"
   }
 }

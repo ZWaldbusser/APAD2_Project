@@ -1,0 +1,17 @@
+meta {
+  name: Get Unit Price
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{projectsProdUrl}}/get_unit_price
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "category": "LIGHTS, EMERGENCY"
+  }
+}

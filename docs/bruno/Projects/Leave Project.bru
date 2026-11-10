@@ -1,0 +1,19 @@
+meta {
+  name: Leave Project
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{projectsProdUrl}}/projects/leave_project
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "orgId": "AUS",
+    "projectId": "P001",
+    "userId": "user2"
+  }
+}
