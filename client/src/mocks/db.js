@@ -5,8 +5,11 @@
 
 export const db = {
   users: [
-    { id: "u1", userid: "demo", password: "demo" },
-    { id: "u2", userid: "teammate", password: "teammate" },
+    // Explicit contract-shaped agency fixtures; these are not provider identity evidence.
+    { id: "u1", userid: "demo", password: "demo", agencyCode: "AUS" },
+    { id: "u2", userid: "teammate", password: "teammate", agencyCode: "DAL" },
+    { id: "u3", userid: "empty", password: "demo", agencyCode: "TEX" },
+    { id: "u4", userid: "unassigned", password: "demo" },
   ],
   projects: [
     {
