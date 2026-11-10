@@ -1,4 +1,4 @@
-// In-memory mock data. Shapes copy the monolith (server/*.py).
+// In-memory mock data — matches Projects API v1.4 contract.
 // Data resets when the page reloads.
 //
 // Seed login:  demo / demo
@@ -11,21 +11,23 @@ export const db = {
   projects: [
     {
       id: "p1",
+      orgId: "AUS",
       projectID: "P1",
       name: "Demo Project",
       description: "Seed project for mock mode",
-      projectCreatorId: "u1",
+      creatorId: "u1",
       budget: 50000,
-      hardwareList: [{ hardwareId: "h1", hardwareName: "HWSet1", capacity: 20 }],
+      hardwareList: [{ hardwareId: "HW001", allocation: 20 }],
       users: ["u1"],
       hwSets: { HWSet1: 20 },
     },
     {
       id: "p2",
+      orgId: "DAL",
       projectID: "P2",
       name: "Teammate Project",
       description: "Join this one to test /join",
-      projectCreatorId: "u2",
+      creatorId: "u2",
       budget: 10000,
       hardwareList: [],
       users: ["u2"],
