@@ -3,7 +3,14 @@ import "../styles/Login.css";
 import { useNavigate } from "react-router-dom";
 import { users, projects, hardware } from "../services";
 
+const ORG_OPTIONS = [
+  { code: "AUS", label: "City of Austin" },
+  { code: "DAL", label: "City of Dallas" },
+  { code: "TEX", label: "State of Texas" },
+];
+
 function CreateProject() {
+  const [orgId, setOrgId] = useState("AUS");
   const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
   const [projectDesc, setProjectDesc] = useState("");
@@ -66,7 +73,7 @@ function CreateProject() {
     let active = true;
     const timeoutId = setTimeout(async () => {
       try {
-        const res = await projects.getProject(projectId);
+        const res = await projects.getProject(projectId, orgId);
         if (res.status === 404) {
           setIdStatus("available");
         } else if (res.ok) {
@@ -80,7 +87,7 @@ function CreateProject() {
     }, 400);
 
     return () => clearTimeout(timeoutId);
-  }, [projectId]);
+  }, [projectId, orgId]);
 
   const handleCreate = async () => {
     if (submitting) return;
@@ -95,7 +102,7 @@ function CreateProject() {
       return;
     }
     if (idStatus === "taken") {
-      setError("Project ID must be unique");
+      setError("Project ID already exists for this agency");
       return;
     }
     if (budget === "" || Number(budget) < 0) {
@@ -105,10 +112,11 @@ function CreateProject() {
 
     try {
       const res = await projects.createProject({
+        orgId,
         projectId,
         projectName,
         projectDesc,
-        projectCreatorId: owner.userid || owner.id,
+        creatorId: owner.userid || owner.id,
         budget: Number(budget),
         hardwareList: [],
       });
@@ -117,14 +125,14 @@ function CreateProject() {
       if (!res.ok) {
         if (res.status === 409) {
           setIdStatus("taken");
-          setError("Project ID must be unique");
+          setError("Project ID already exists for this agency");
         } else if (res.status === 422) {
           const msg = Array.isArray(data.detail)
             ? data.detail.map((d) => d.msg).join(", ")
-            : data.detail || "Validation error";
+            : data.errorMessage || "Validation error";
           setError(msg);
         } else {
-          setError(data.errorMessage || data.detail || "Could not create project");
+          setError(data.errorMessage || "Could not create project");
         }
 
         created = true;
@@ -166,7 +174,7 @@ function CreateProject() {
     idle: "",
     checking: "Checking availability...",
     available: "Available",
-    taken: "Project ID must be unique",
+    taken: "Project ID already exists for this agency",
   }[idStatus];
 
   const idHelperClass = {
@@ -183,6 +191,13 @@ function CreateProject() {
       <main className="login-page">
         <div className="login-box create-project-box">
           <h1>Create Project</h1>
+
+          <label>Agency</label>
+          <select value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+            {ORG_OPTIONS.map((o) => (
+              <option key={o.code} value={o.code}>{o.label} ({o.code})</option>
+            ))}
+          </select>
 
           <label>Project ID</label>
           <input
@@ -210,7 +225,7 @@ function CreateProject() {
             onChange={(e) => setProjectDesc(e.target.value)}
           />
 
-          <label>Budget</label>
+          <label>Budget (USD)</label>
           <input
             type="number"
             placeholder="Enter budget"

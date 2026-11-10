@@ -3,7 +3,14 @@ import "../styles/Login.css";
 import { useNavigate } from "react-router-dom";
 import { users, projects } from "../services";
 
+const ORG_OPTIONS = [
+  { code: "AUS", label: "City of Austin" },
+  { code: "DAL", label: "City of Dallas" },
+  { code: "TEX", label: "State of Texas" },
+];
+
 function JoinProject() {
+  const [orgId, setOrgId] = useState("AUS");
   const [projectID, setProjectID] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState("");
@@ -29,34 +36,15 @@ function JoinProject() {
     }
 
     try {
-      // Look up the project first to get the creatorId
-      const detailRes = await projects.getProject(projectID.trim());
-      if (detailRes.status === 404) {
-        setError("Project not found");
-        return;
-      }
-      if (!detailRes.ok) {
-        setError("Could not look up project");
-        return;
-      }
-      const detailData = await detailRes.json();
-      const projectInfo = detailData.projectInfo || detailData;
-
       const res = await projects.joinProject({
+        orgId,
         projectId: projectID.trim(),
-        projectCreatorId: projectInfo.projectCreatorId,
         userId: currentUser.userid || currentUser.id,
       });
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 409) {
-          setError(data.detail || "You are already a member of this project");
-        } else if (res.status === 404) {
-          setError(data.detail || "Project not found");
-        } else {
-          setError(data.detail || data.errorMessage || "Could not join project");
-        }
+        setError(data.errorMessage || "Could not join project");
         return;
       }
 
@@ -71,6 +59,13 @@ function JoinProject() {
       <main className="login-page">
         <div className="login-box">
           <h1>Join Project</h1>
+
+          <label>Agency</label>
+          <select value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+            {ORG_OPTIONS.map((o) => (
+              <option key={o.code} value={o.code}>{o.label} ({o.code})</option>
+            ))}
+          </select>
 
           <label>Project ID</label>
           <input
