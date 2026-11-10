@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { hardware } from "../services";
 import "../styles/ResourceRental.css";
 
 function ResourceRental() {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const orgId = searchParams.get("orgId");
   const [hardwareList, setHardwareList] = useState([]);
   const [checkinQty, setCheckinQty] = useState({});
   const [checkoutQty, setCheckoutQty] = useState({});
@@ -13,20 +15,7 @@ function ResourceRental() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const fetchRows = useCallback(async () => {
-    const [allocations, catalog] = await Promise.all([
-      hardware.getProjectAllocations(projectId),
-      hardware.getAllHardware(),
-    ]);
-    const byId = new Map(catalog.map((item) => [item._id, item]));
-    return allocations.map((allocation) => ({
-      ...allocation,
-      name: byId.get(allocation.hardware_id)?.name || allocation.hardware_id,
-      allocated: allocation.quantity,
-      checkedOut: allocation.out,
-      available: Math.max(allocation.quantity - allocation.out, 0),
-    }));
-  }, [projectId]);
+  const fetchRows = useCallback(() => hardware.getProjectHardware(projectId), [projectId]);
 
   useEffect(() => {
     let active = true;
@@ -61,11 +50,14 @@ function ResourceRental() {
         hardwareId: item.hardware_id,
         quantity,
         projectId,
+        orgId,
       }));
       setHardwareList(await fetchRows());
       setCheckinQty({});
       setCheckoutQty({});
     } catch (err) {
+      // A return can span several RPCs; reload after errors to show completed writes.
+      try { setHardwareList(await fetchRows()); } catch { /* Keep the original action error. */ }
       setError(err.message || "Hardware update failed");
     } finally {
       setBusy(false);

@@ -29,17 +29,12 @@ export const me = () => request("users", "/api/me");
 
 export const listUsers = () => request("users", "/api/users");
 
-/** Returns {id, userid} or null. */
+/** Returns the authenticated MongoDB user, or null when the session is unavailable. */
 export async function getCurrentUser() {
   try {
     const res = await me();
-    if (!res.ok) throw new Error();
-    return res.json();
+    return res.ok ? await res.json() : null;
   } catch {
-    // Users API unavailable — return a dev bypass user if a token exists.
-    // This allows testing other services without a running Users backend.
-    const token = localStorage.getItem("token");
-    if (token) return { id: "dev-user", userid: "dev-user" };
     return null;
   }
 }

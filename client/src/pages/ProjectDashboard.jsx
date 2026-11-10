@@ -18,8 +18,8 @@ function ProjectDashboard() {
     loadProjects();
   }, []);
 
-  const handleCheckoutHardware = (projectId) => {
-    navigate(`/projects/${encodeURIComponent(projectId)}/resources`);
+  const handleCheckoutHardware = (projectId, orgId) => {
+    navigate(`/projects/${encodeURIComponent(projectId)}/resources?orgId=${encodeURIComponent(orgId)}`);
   };
 
   const filteredProjects = projects.filter((p) => {
@@ -61,7 +61,7 @@ function ProjectDashboard() {
                 <span className="org-badge">{project.orgId}</span>
               </span>
               <span>
-                <button className="checkout-btn" onClick={() => handleCheckoutHardware(project.projectId)}>Checkout Hardware</button>
+                <button className="checkout-btn" onClick={() => handleCheckoutHardware(project.projectId, project.orgId)}>Checkout Hardware</button>
               </span>
             </div>
           ))}

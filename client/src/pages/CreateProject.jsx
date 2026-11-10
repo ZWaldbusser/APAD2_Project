@@ -65,10 +65,7 @@ function CreateProject() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!projectId || projectCreated) {
-      setIdStatus("idle");
-      return;
-    }
+    if (!projectId || projectCreated) return;
 
     let active = true;
     const timeoutId = setTimeout(async () => {
@@ -110,8 +107,8 @@ function CreateProject() {
       setError("Project ID already exists for this agency");
       return;
     }
-    if (budget === "" || Number(budget) < 0) {
-      setError("Budget must be 0 or greater");
+    if (budget === "" || !Number.isInteger(Number(budget)) || Number(budget) < 0) {
+      setError("Budget must be a whole number of 0 or greater");
       return;
     }
 
@@ -138,7 +135,7 @@ function CreateProject() {
           projectDesc,
           creatorId: owner.userid || owner.id,
           budget: Number(budget),
-          hardwareList: [],
+          hardwareList: selectedHardware.map((item) => ({ hardwareId: getId(item), allocation: Number(quantities[getId(item)]) })),
         });
         const data = await res.json();
 
@@ -162,25 +159,14 @@ function CreateProject() {
         setIdStatus("idle");
       }
 
-      // Refresh versions for each attempt, including retries after partial failure.
-      const currentHardware = selectedHardware.length ? await hardware.getAllHardware() : [];
-      const failures = [];
-      for (const item of selectedHardware) {
-        try {
-          const current = currentHardware.find((hw) => (hw._id || hw.id) === getId(item));
-          if (!current) throw new Error("Hardware is no longer available");
-          await hardware.responseData(await hardware.setAllocation({
-            hardwareId: getId(item),
-            projectId,
-            expectedVersion: current.version,
-            quantity: Number(quantities[getId(item)]),
-            reason: `Initial allocation for project ${projectId}`,
-          }));
-          setAllocatedIds((ids) => [...ids, getId(item)]);
-        } catch (err) {
-          failures.push(`${item.name}: ${err.message}`);
-        }
-      }
+      const failures = await hardware.allocateProjectHardware({
+        projectId, orgId,
+        items: selectedHardware.map((item) => ({
+          hardwareId: getId(item), name: item.name,
+          quantity: Number(quantities[getId(item)]),
+        })),
+        onAllocated: (id) => setAllocatedIds((ids) => [...ids, id]),
+      });
       if (failures.length) {
         setError(`Project created. Some allocations failed: ${failures.join("; ")}. Retry to allocate the remaining hardware.`);
         return;
@@ -217,7 +203,7 @@ function CreateProject() {
           <h1>Create Project</h1>
 
           <label>Agency</label>
-          <select value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+          <select disabled={submitting || projectCreated} value={orgId} onChange={(e) => setOrgId(e.target.value)}>
             {ORG_OPTIONS.map((o) => (
               <option key={o.code} value={o.code}>{o.label} ({o.code})</option>
             ))}
@@ -285,7 +271,7 @@ function CreateProject() {
                   max={Math.min(unallocated, 1000000)}
                   step="1"
                   value={quantities[itemId] ?? 0}
-                  disabled={submitting || allocated}
+                  disabled={submitting || projectCreated || allocated}
                   onChange={(e) => setQuantities({ ...quantities, [itemId]: e.target.value })}
                 />
               </div>
