@@ -4,6 +4,7 @@ from db import db
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from bson import ObjectId
+import hmac
 
 password_hasher = PasswordHasher()
 users_collection = db["users"]
@@ -36,13 +37,28 @@ def verify_login(userid, password):
     if not user:
         return None
 
+    stored_password = user.get("password")
+
     try:
-        password_hasher.verify(user.get("password"), password)
+        password_hasher.verify(stored_password, password)
         return str(user["_id"])
     except VerifyMismatchError:     # incorrect password
         return None
-    except InvalidHashError:        # stored value is not a valid Argon2 hash, likely old plaintext user
-        return None
+    except InvalidHashError:
+        # Migrate legacy plaintext records after verifying the old password.
+        # New and migrated records are always stored as Argon2 hashes.
+        if not isinstance(stored_password, str) or not isinstance(password, str):
+            return None
+        if not hmac.compare_digest(stored_password, password):
+            return None
+
+        result = users_collection.update_one(
+            {"_id": user["_id"], "password": stored_password},
+            {"$set": {"password": password_hasher.hash(password)}},
+        )
+        if result.modified_count != 1:
+            return None
+        return str(user["_id"])
     except VerificationError:       # Argon2 verification failed for another verification-related reason
         return None
 

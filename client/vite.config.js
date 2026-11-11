@@ -12,10 +12,15 @@ export default defineConfig({
   server: {
     allowedHosts: ['localhost'],
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:5050',
-        changeOrigin: true,
-      },
-    },
+  '/api': {
+    target: 'http://127.0.0.1:5050',
+    changeOrigin: true,
+  },
+  '/user-api': {
+    target: 'http://localhost:3000',
+    changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/user-api/, ''),
+  },
+},
   },
 })

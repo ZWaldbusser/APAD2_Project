@@ -45,12 +45,12 @@ function Login() {
       } else if (data.nextStep === "2fa_verify") {
         navigate("/2fa/verify");
       } else {
-      // Response isn't from the user service (or the contract changed)
-      sessionStorage.removeItem("mfaToken");
-      Swal.fire({
-        icon: "error",
-        title: "Login Error",
-        text: "Unexpected response from the server. Please try again later.",
+        // Response isn't from the user service (or the contract changed)
+        sessionStorage.removeItem("mfaToken");
+        Swal.fire({
+          icon: "error",
+          title: "Login Error",
+          text: "Unexpected response from the server. Please try again later.",
         });
       }
 

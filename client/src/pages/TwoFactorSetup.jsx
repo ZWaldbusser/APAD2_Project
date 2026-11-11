@@ -13,7 +13,7 @@ function TwoFactorSetup() {
   const [code, setCode] = useState("");
   const navigate = useNavigate();
   const { login } = useAuth();
-  const requested = useRef(false); // StrictMode runs effects twice in dev; only request one QR code
+  const requested = useRef(false);
 
   // Send the user back to login with a message (expired session, steps out of order, etc.)
   const backToLogin = async (text) => {
@@ -113,7 +113,7 @@ function TwoFactorSetup() {
         showConfirmButton: false,
       });
 
-      navigate("/projects");
+      navigate("/visualization");
     } catch {
       // Error alert if server is unreachable
       Swal.fire({
