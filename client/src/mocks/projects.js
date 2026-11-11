@@ -1,13 +1,13 @@
 // Mock Projects service — matches Projects API v1.4 contract.
 
-import { db, ok, err } from "./db";
+import { db, ok } from "./db";
 
 const findProject = (orgId, projectId) =>
   db.projects.find((p) => p.orgId === orgId && p.projectID === projectId);
 
 export const projectsRoutes = [
   // Search projects: POST /projects/search_project
-  ["POST", /^\/projects\/search_project$/, (_m, body, _token) => {
+  ["POST", /^\/projects\/search_project$/, (_m, body) => {
     let results = db.projects;
 
     const filterByOrg = body?.orgId && body.orgId.trim();
@@ -30,7 +30,7 @@ export const projectsRoutes = [
   }],
 
   // Create project: POST /projects/create_project
-  ["POST", /^\/projects\/create_project$/, (_m, body, _token) => {
+  ["POST", /^\/projects\/create_project$/, (_m, body) => {
     if (!body?.orgId || !body?.projectId || !body?.projectName || body.budget === undefined || !body?.creatorId) {
       return { status: 422, data: { success: false, errorMessage: "Missing required fields" } };
     }
@@ -54,7 +54,7 @@ export const projectsRoutes = [
   }],
 
   // Join project: POST /projects/join_project
-  ["POST", /^\/projects\/join_project$/, (_m, body, _token) => {
+  ["POST", /^\/projects\/join_project$/, (_m, body) => {
     if (!body?.orgId || !body?.projectId || !body?.userId) {
       return { status: 422, data: { success: false, errorMessage: "Missing required fields" } };
     }
@@ -68,7 +68,7 @@ export const projectsRoutes = [
   }],
 
   // Leave project: POST /projects/leave_project
-  ["POST", /^\/projects\/leave_project$/, (_m, body, _token) => {
+  ["POST", /^\/projects\/leave_project$/, (_m, body) => {
     if (!body?.orgId || !body?.projectId || !body?.userId) {
       return { status: 422, data: { success: false, errorMessage: "Missing required fields" } };
     }

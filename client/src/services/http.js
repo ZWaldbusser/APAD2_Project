@@ -36,7 +36,7 @@ export async function request(service, path, options = {}) {
   } else {
     const baseUrl = SERVICE_URLS[service];
     if (baseUrl === undefined) throw new Error(`Unknown service: ${service}`);
-    res = await fetch(`${baseUrl}${path}`, {
+    res = await fetch(`${baseUrl}${service === "projects" ? "/api/projects-service" : ""}${path}`, {
       method,
       headers: {
         "Content-Type": "application/json",

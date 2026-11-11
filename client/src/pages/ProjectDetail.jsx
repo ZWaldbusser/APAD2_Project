@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { projects as projectsApi, users } from "../services";
+import { projects as projectsApi, users, hardware } from "../services";
 import Swal from "sweetalert2";
 import "../styles/ProjectDetail.css";
 
@@ -9,9 +9,12 @@ function ProjectDetail() {
   const [searchParams] = useSearchParams();
   const orgId = searchParams.get("orgId") || "AUS";
   const navigate = useNavigate();
+  const [error, setError] = useState("");
   const [project, setProject] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hardwareList, setHardwareList] = useState([]);
+  const [hardwareError, setHardwareError] = useState("");
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -30,14 +33,23 @@ function ProjectDetail() {
         return;
       }
       if (!res.ok) {
+        setError("Could not load project");
         setLoading(false);
         return;
       }
       const data = await res.json();
       setProject(data.projectInfo || data);
+      try {
+        setHardwareList(await hardware.getProjectHardware(projectId));
+      } catch (error) {
+        setHardwareError(error.message || "Could not load project hardware");
+      }
       setLoading(false);
     }
-    load();
+    load().catch((error) => {
+      setError(error.message || "Could not load project");
+      setLoading(false);
+    });
   }, [projectId, orgId, navigate]);
 
   const userId = currentUser?.userid || currentUser?.id;
@@ -99,6 +111,10 @@ function ProjectDetail() {
     );
   }
 
+  if (error) {
+    return <main className="project-detail-main"><p role="alert" className="error-text">{error}</p><button onClick={() => navigate("/projects")}>Back to Projects</button></main>;
+  }
+
   if (notFound) {
     return (
       <div>
@@ -151,7 +167,8 @@ function ProjectDetail() {
           )}
         </div>
 
-        {project.hardwareList?.length > 0 && (
+        {hardwareError && <p className="error-text" role="alert">{hardwareError}</p>}
+        {hardwareList.length > 0 && (
           <div className="hardware-section">
             <h3>Hardware</h3>
             <table className="hardware-table">
@@ -162,10 +179,10 @@ function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {project.hardwareList.map((hw) => (
-                  <tr key={hw.hardwareId}>
-                    <td>{hw.hardwareId}</td>
-                    <td>{hw.allocation}</td>
+                {hardwareList.map((hw) => (
+                  <tr key={hw.hardware_id}>
+                    <td>{hw.hardware_id}</td>
+                    <td>{hw.allocated}</td>
                   </tr>
                 ))}
               </tbody>
