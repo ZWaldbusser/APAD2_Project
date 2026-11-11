@@ -53,7 +53,6 @@ function Login() {
           text: "Unexpected response from the server. Please try again later.",
         });
       }
-
     } catch {
       // Error alert if server is unreachable
       Swal.fire({

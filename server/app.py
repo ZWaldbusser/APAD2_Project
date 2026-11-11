@@ -1,5 +1,4 @@
-# Main Flask entrypoint. Defines API routes and delegates database
-# operations to the appropriate database module.
+# Flask entry point for MongoDB users and the Projects/Hardware API adapters.
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -12,8 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import db
 import usersDatabase as users_db
-import projectsDatabase as projects_db
+from services import projects as projects_api
+from routes.projects import create_blueprint as create_projects_blueprint
 import hardwareDatabase as hardware_db
+from hardware.client import HardwareServiceError
 
 import jwt
 import datetime
@@ -34,6 +35,12 @@ if not SECRET_KEY:
 @app.errorhandler(RuntimeError)
 def handle_runtime_error(error):
     return jsonify({"error": str(error)}), 503
+
+
+@app.errorhandler(projects_api.ProjectsServiceError)
+@app.errorhandler(HardwareServiceError)
+def handle_upstream_service_error(error):
+    return jsonify({"error": str(error)}), error.status_code
 
 
 def token_required(f):
@@ -159,77 +166,20 @@ def get_users():
     return jsonify(users_db.get_all_users()), 200
 
 
-# Project routes (create project, get project, list projects)
-
-@app.route("/api/projects", methods=["POST"])
-@token_required
-def create_project():
-    data = request.get_json()
-    required_fields = ["name", "description", "projectID"]
-
-    if not data or not all(field in data for field in required_fields):
-        return jsonify({"error": "name, description, and projectID are required"}), 400
-
-    created = projects_db.createProject(
-        data["name"], data["projectID"], data["description"]
-    )
-
-    if not created:
-        return jsonify({"error": "projectID already exists"}), 409
-
-    projects_db.addUser(data["projectID"], request.user_id)
-
-    return jsonify({"message": "Project created", "projectID": data["projectID"]}), 201
-
-
-@app.route("/api/projects/<project_id>", methods=["GET"])
-def get_project(project_id):
-    project = projects_db.queryProject(project_id)
-
-    if not project:
-        return jsonify({"error": "Project not found"}), 404
-
-    return jsonify({
-        "id": str(project["_id"]),
-        "name": project["projectName"],
-        "description": project["description"],
-        "projectID": project["projectId"],
-        "users": project.get("users", []),
-        "hwSets": project.get("hwSets", {})
-    }), 200
-
-
-@app.route("/api/projects", methods=["GET"])
-@token_required
-def get_projects():
-    projects = []
-    for project in db.db["projects"].find({"users": request.user_id}):
-        projects.append({
-            "id": str(project["_id"]),
-            "name": project.get("projectName"),
-            "description": project.get("description"),
-            "projectID": project.get("projectId"),
-            "users": project.get("users", [])
-        })
-    return jsonify(projects), 200
-
-@app.route("/api/projects/<project_id>/join", methods=["POST"])
-@token_required
-def join_project(project_id):
-    result = projects_db.addUser(project_id, request.user_id)
-    if result == "not_found":
-        return jsonify({"error": "Project not found"}), 404
-    if result == "already_member":
-        return jsonify({"error": "You are already a member of this project"}), 409
-    return jsonify({"message": "Joined project"}), 200
+app.register_blueprint(create_projects_blueprint(token_required), url_prefix="/api/projects-service")
 
 
 # Hardware routes (view hardware, checkout, check-in)
 
-@app.route("/api/hardware", methods=["GET"])
+@app.route("/api/hardware", methods=["POST"])
 def get_hardware():
     try:
-        return jsonify(hardware_db.get_all_hardware(params=request.args)), 200
+        data = request.get_json(silent=True)
+        if data is None:
+            data = {}
+        if not isinstance(data, dict):
+            return jsonify({"error": "Hardware list request body must be an object"}), 400
+        return jsonify(hardware_db.get_all_hardware(params=data)), 200
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 503
 
@@ -244,7 +194,7 @@ def checkout_hardware():
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    if not projects_db.queryProject(data["projectId"]):
+    if not projects_api.query_project(data["projectId"], data.get("orgId")):
         return jsonify({"error": "Project not found"}), 404
 
     success, message = hardware_db.checkout_hardware(
@@ -268,7 +218,7 @@ def checkin_hardware():
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    project = projects_db.queryProject(data["projectId"])
+    project = projects_api.query_project(data["projectId"], data.get("orgId"))
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
@@ -283,17 +233,20 @@ def checkin_hardware():
     return jsonify({"message": message}), 200
 
 
-@app.route("/api/allocations", methods=["GET"])
+@app.route("/api/listAllocations", methods=["POST"])
 @token_required
 def get_allocations():
     try:
-        status, payload = hardware_db.get_allocations(params=request.args)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Allocation list request body is required"}), 400
+        status, payload = hardware_db.get_allocations(params=data)
         return jsonify(payload), status
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 503
 
 
-@app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["PUT"])
+@app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["POST"])
 @token_required
 def set_allocation(hardware_id, project_id):
     data = request.get_json(silent=True)
@@ -305,7 +258,7 @@ def set_allocation(hardware_id, project_id):
         return jsonify({"error": "expected_version must be an integer between 1 and 1000000"}), 400
     if not isinstance(data.get("reason"), str) or not 3 <= len(data["reason"]) <= 1000:
         return jsonify({"error": "reason must be between 3 and 1000 characters"}), 400
-    if not projects_db.queryProject(project_id):
+    if not projects_api.query_project(project_id, data.get("orgId")):
         return jsonify({"error": "Project not found"}), 404
     status, payload = hardware_db.set_allocation(hardware_id, project_id, {
         "expected_version": data["expected_version"],

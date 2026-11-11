@@ -1,3 +1,5 @@
+"""Legacy MongoDB project helpers; the active app uses services.projects."""
+
 # Import necessary libraries and modules
 from db import db as myDB
 import hardwareDatabase

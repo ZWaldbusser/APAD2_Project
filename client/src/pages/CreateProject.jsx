@@ -3,10 +3,18 @@ import "../styles/Login.css";
 import { useNavigate } from "react-router-dom";
 import { users, projects, hardware } from "../services";
 
+const ORG_OPTIONS = [
+  { code: "AUS", label: "City of Austin" },
+  { code: "DAL", label: "City of Dallas" },
+  { code: "TEX", label: "State of Texas" },
+];
+
 function CreateProject() {
-  const [projectID, setProjectID] = useState("");
+  const [orgId, setOrgId] = useState("AUS");
+  const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
-  const [description, setDescription] = useState("");
+  const [projectDesc, setProjectDesc] = useState("");
+  const [budget, setBudget] = useState("");
   const [owner, setOwner] = useState(null);
   const [error, setError] = useState("");
   const [hardwareList, setHardwareList] = useState([]);
@@ -41,8 +49,7 @@ function CreateProject() {
     return () => { active = false; };
   }, []);
 
-  // Availability check state
-  const [idStatus, setIdStatus] = useState("idle"); // idle | checking | available | taken
+  const [idStatus, setIdStatus] = useState("idle");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,62 +59,65 @@ function CreateProject() {
         navigate("/login");
         return;
       }
-      setOwner(user.id);
+      setOwner(user);
     }
     loadUser();
   }, [navigate]);
 
-  // Debounced uniqueness check whenever projectID changes
   useEffect(() => {
-    if (!projectID || projectCreated) {
-      return;
-    }
+    if (!projectId || projectCreated) return;
 
     let active = true;
     const timeoutId = setTimeout(async () => {
       try {
-        // Backend should expose a cheap existence check.
-        // e.g. GET /api/projects/:id returns 404 if free, 200 if taken.
-        const res = await projects.getProject(projectID);
+        const res = await projects.getProject(projectId, orgId);
         if (!active) return;
         if (res.status === 404) {
           setIdStatus("available");
         } else if (res.ok) {
           setIdStatus("taken");
         } else {
-          // Unexpected error — don't block the user, let submit-time check catch it
           setIdStatus("idle");
         }
       } catch {
         if (active) setIdStatus("idle");
       }
-    }, 400); // debounce delay
+    }, 400);
 
     return () => { active = false; clearTimeout(timeoutId); };
-  }, [projectID, projectCreated]);
+  }, [projectId, orgId, projectCreated]);
 
   const handleCreate = async () => {
     if (submitting) return;
     setError("");
 
-    if (!projectID) {
+    if (!projectId) {
       setError("Project ID is required");
       return;
     }
-    if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(projectID)) {
+    if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(projectId)) {
       setError("Project ID must be 1–100 characters using letters, numbers, _, ., :, @, or -.");
       return;
     }
+    if (!projectName) {
+      setError("Project Name is required");
+      return;
+    }
     if (idStatus === "taken") {
-      setError("Project ID must be unique");
+      setError("Project ID already exists for this agency");
+      return;
+    }
+    if (budget === "" || !Number.isInteger(Number(budget)) || Number(budget) < 0) {
+      setError("Budget must be a whole number of 0 or greater");
       return;
     }
 
-    const selectedHardware = hardwareList.filter((item) => Number(quantities[item._id] || 0) > 0 && !allocatedIds.includes(item._id));
+    const getId = (item) => item._id || item.id;
+    const selectedHardware = hardwareList.filter((item) => Number(quantities[getId(item)] || 0) > 0 && !allocatedIds.includes(getId(item)));
     if (hardwareList.some((item) => {
-      if (allocatedIds.includes(item._id)) return false;
-      const quantity = Number(quantities[item._id] || 0);
-      const unallocated = item.unallocated ?? Math.max(item.total - item.reserved, 0);
+      if (allocatedIds.includes(getId(item))) return false;
+      const quantity = Number(quantities[getId(item)] || 0);
+      const unallocated = item.unallocated ?? Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
       return !Number.isInteger(quantity) || quantity < 0 || quantity > Math.min(unallocated, 1000000);
     })) {
       setError("Allocation quantities must be whole numbers within the unallocated stock.");
@@ -119,21 +129,27 @@ function CreateProject() {
     try {
       if (!created) {
         const res = await projects.createProject({
-          projectID,
-          name: projectName,
-          description,
+          orgId,
+          projectId,
+          projectName,
+          projectDesc,
+          creatorId: owner.userid || owner.id,
+          budget: Number(budget),
+          hardwareList: selectedHardware.map((item) => ({ hardwareId: getId(item), allocation: Number(quantities[getId(item)]) })),
         });
         const data = await res.json();
 
         if (!res.ok) {
-          // Backend is the final source of truth for uniqueness —
-          // handle the race where someone else grabbed the ID between
-          // the check above and this submit.
           if (res.status === 409) {
             setIdStatus("taken");
-            setError("Project ID must be unique");
+            setError("Project ID already exists for this agency");
+          } else if (res.status === 422) {
+            const msg = Array.isArray(data.detail)
+              ? data.detail.map((d) => d.msg).join(", ")
+              : data.errorMessage || "Validation error";
+            setError(msg);
           } else {
-            setError(data.error || "Could not create project");
+            setError(data.errorMessage || "Could not create project");
           }
           return;
         }
@@ -143,25 +159,14 @@ function CreateProject() {
         setIdStatus("idle");
       }
 
-      // Refresh versions for each attempt, including retries after partial failure.
-      const currentHardware = selectedHardware.length ? await hardware.getAllHardware() : [];
-      const failures = [];
-      for (const item of selectedHardware) {
-        try {
-          const current = currentHardware.find((hw) => hw._id === item._id);
-          if (!current) throw new Error("Hardware is no longer available");
-          await hardware.responseData(await hardware.setAllocation({
-            hardwareId: item._id,
-            projectId: projectID,
-            expectedVersion: current.version,
-            quantity: Number(quantities[item._id]),
-            reason: `Initial allocation for project ${projectID}`,
-          }));
-          setAllocatedIds((ids) => [...ids, item._id]);
-        } catch (err) {
-          failures.push(`${item.name}: ${err.message}`);
-        }
-      }
+      const failures = await hardware.allocateProjectHardware({
+        projectId, orgId,
+        items: selectedHardware.map((item) => ({
+          hardwareId: getId(item), name: item.name,
+          quantity: Number(quantities[getId(item)]),
+        })),
+        onAllocated: (id) => setAllocatedIds((ids) => [...ids, id]),
+      });
       if (failures.length) {
         setError(`Project created. Some allocations failed: ${failures.join("; ")}. Retry to allocate the remaining hardware.`);
         return;
@@ -179,7 +184,7 @@ function CreateProject() {
     idle: "",
     checking: "Checking availability...",
     available: "Available",
-    taken: "Project ID must be unique",
+    taken: "Project ID already exists for this agency",
   }[idStatus];
 
   const idHelperClass = {
@@ -189,7 +194,7 @@ function CreateProject() {
     taken: "error-text",
   }[idStatus];
 
-  const canSubmit = owner && projectID && idStatus !== "taken" && idStatus !== "checking" && !hardwareLoading && !hardwareError && !submitting;
+  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking" && !submitting;
 
   return (
     <div>
@@ -197,16 +202,23 @@ function CreateProject() {
         <div className="login-box create-project-box">
           <h1>Create Project</h1>
 
+          <label>Agency</label>
+          <select disabled={submitting || projectCreated} value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+            {ORG_OPTIONS.map((o) => (
+              <option key={o.code} value={o.code}>{o.label} ({o.code})</option>
+            ))}
+          </select>
+
           <label>Project ID</label>
           <input
             type="text"
             placeholder="Enter a unique project ID"
-            value={projectID}
+            value={projectId}
             disabled={submitting || projectCreated}
             maxLength={100}
             onChange={(e) => {
               const id = e.target.value.trim();
-              setProjectID(id);
+              setProjectId(id);
               setIdStatus(id ? "checking" : "idle");
             }}
           />
@@ -224,10 +236,20 @@ function CreateProject() {
           <label>Description</label>
           <input
             type="text"
-            placeholder="Enter description"
-            value={description}
+            placeholder="Enter description (optional)"
+            value={projectDesc}
             disabled={submitting || projectCreated}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => setProjectDesc(e.target.value)}
+          />
+
+          <label>Budget (USD)</label>
+          <input
+            type="number"
+            placeholder="Enter budget"
+            min="0"
+            value={budget}
+            disabled={submitting || projectCreated}
+            onChange={(e) => setBudget(e.target.value)}
           />
 
           <h2>Hardware Allocation</h2>
@@ -236,20 +258,21 @@ function CreateProject() {
           {hardwareError && <div role="alert"><p className="error-text">{hardwareError}</p><button onClick={loadHardware}>Retry loading hardware</button></div>}
           {!hardwareLoading && !hardwareError && hardwareList.length === 0 && <p>No hardware is available.</p>}
           {hardwareList.map((item) => {
-            const unallocated = item.unallocated ?? Math.max(item.total - item.reserved, 0);
-            const allocated = allocatedIds.includes(item._id);
+            const itemId = item._id || item.id;
+            const unallocated = item.unallocated ?? Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
+            const allocated = allocatedIds.includes(itemId);
             return (
-              <div key={item._id}>
-                <label htmlFor={`allocation-${item._id}`}>{item.name} ({item.asset_tag || item._id}) — {unallocated} unallocated{allocated ? " — Allocated" : ""}</label>
+              <div key={itemId}>
+                <label htmlFor={`allocation-${itemId}`}>{item.name} ({item.asset_tag || itemId}) — {unallocated} unallocated{allocated ? " — Allocated" : ""}</label>
                 <input
-                  id={`allocation-${item._id}`}
+                  id={`allocation-${itemId}`}
                   type="number"
                   min="0"
                   max={Math.min(unallocated, 1000000)}
                   step="1"
-                  value={quantities[item._id] ?? 0}
-                  disabled={submitting || allocated}
-                  onChange={(e) => setQuantities({ ...quantities, [item._id]: e.target.value })}
+                  value={quantities[itemId] ?? 0}
+                  disabled={submitting || projectCreated || allocated}
+                  onChange={(e) => setQuantities({ ...quantities, [itemId]: e.target.value })}
                 />
               </div>
             );

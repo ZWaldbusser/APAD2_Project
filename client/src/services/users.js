@@ -48,10 +48,14 @@ export const health = () => request("users", "/health", { auth: false });
 
 /** Returns { id, username, agencyCode, agencyName, twoFactorEnabled, createdAt } or null. */
 export async function getCurrentUser() {
-  const res = await me();
-  if (!res.ok) return null;
-  const data = await res.json().catch(() => null);
-  return data?.user ?? null;
+  try {
+    const res = await me();
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return data?.user ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // Old monolith routes with no equivalent in the user service. Remove once no page uses them.
