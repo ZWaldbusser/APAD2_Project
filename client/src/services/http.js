@@ -32,7 +32,11 @@ export async function request(service, path, options = {}) {
 
   let res;
   if (USE_MOCKS) {
-    res = await mockFetch(service, method, path, body, token);
+    // A per-request Authorization header (e.g. the 2FA mfaToken) overrides the stored token
+    const mockToken = headers.Authorization
+      ? headers.Authorization.replace(/^Bearer\s+/i, "")
+      : token;
+    res = await mockFetch(service, method, path, body, mockToken);
   } else {
     const baseUrl = SERVICE_URLS[service];
     if (baseUrl === undefined) throw new Error(`Unknown service: ${service}`);
