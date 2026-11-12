@@ -11,6 +11,8 @@ import JoinProject from "./pages/JoinProject";
 import PageHeader from "./components/PageHeader";
 import ResourceRental from "./pages/ResourceRental";
 import ProjectDashboard from "./pages/ProjectDashboard";
+import TwoFactorSetup from "./pages/TwoFactorSetup";
+import EnterCode from "./pages/EnterCode";
 import Visualization from "./pages/Visualization";
 import ProjectDetail from "./pages/ProjectDetail";
 
@@ -24,6 +26,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<CreateUser />} />
           <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route path="/2fa/setup" element={<TwoFactorSetup />} />
+          <Route path="/2fa/verify" element={<EnterCode />} />
 
           <Route path="/visualization" element={
             <ProtectedRoute><Visualization /></ProtectedRoute>

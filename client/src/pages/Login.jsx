@@ -1,7 +1,6 @@
 import { useState } from "react";
 import "../styles/Login.css";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { users } from "../services";
 import Swal from "sweetalert2";
 
@@ -9,12 +8,22 @@ function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-  const { login } = useAuth();
 
   const handleLogin = async () => {
     try {
       const res = await users.login(username, password);
-      const data = await res.json();
+      // Don't crash if the server returns a non-JSON error page
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 429) {
+        // Too many failed attempts
+        Swal.fire({
+          icon: "error",
+          title: "Too Many Attempts",
+          text: "Please wait a minute and try again.",
+        });
+        return;
+      }
 
       if (!res.ok) {
         // Error alert if credentials fail
@@ -26,21 +35,26 @@ function Login() {
         return;
       }
 
-      login(data.token);
+      // Password is correct, but the user isn't fully signed in until 2FA is done.
+      // Save the temporary token the 2FA pages need.
+      sessionStorage.setItem("mfaToken", data.mfaToken);
 
-        // Success alert if credentials are valid
-      await Swal.fire({
-        icon: "success",
-        title: "Welcome!",
-        text: "Successful log in.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-
-      navigate("/projects");
-
+      // First login → set up 2FA; returning user → enter code
+      if (data.nextStep === "2fa_setup") {
+        navigate("/2fa/setup");
+      } else if (data.nextStep === "2fa_verify") {
+        navigate("/2fa/verify");
+      } else {
+        // Response isn't from the user service (or the contract changed)
+        sessionStorage.removeItem("mfaToken");
+        Swal.fire({
+          icon: "error",
+          title: "Login Error",
+          text: "Unexpected response from the server. Please try again later.",
+        });
+      }
     } catch {
-        // Error alert if server is unreachable
+      // Error alert if server is unreachable
       Swal.fire({
         icon: "error",
         title: "Connection Error",
@@ -67,6 +81,7 @@ function Login() {
             placeholder="Enter password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
           />
 
           <button onClick={handleLogin}>Login</button>

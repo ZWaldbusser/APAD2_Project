@@ -1,0 +1,27 @@
+.twofactor-text {
+  text-align: center;
+  margin: 0 0 0.5rem;
+}
+
+.qr-code {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.qr-code img {
+  width: 200px;
+  height: 200px;
+  background: white; /* keeps the QR scannable on dark backgrounds */
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.setup-key {
+  display: block;
+  text-align: center;
+  word-break: break-all;
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0.5rem;
+}
