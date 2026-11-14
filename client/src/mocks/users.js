@@ -51,9 +51,7 @@ const PLACEHOLDER_QR =
   );
 
 export const usersRoutes = [
-  ["GET", /^\/health$/, () => ok({ status: "ok" })],
-
-  ["POST", /^\/users\/register$/, (_m, body) => {
+  ["POST", /^\/api\/users-service\/register$/, (_m, body) => {
     const username = String(body?.username ?? "").trim().toLowerCase();
     const password = String(body?.password ?? "");
     const errors = [];
@@ -76,7 +74,7 @@ export const usersRoutes = [
     return ok({ user: safeUser(user) }, 201);
   }],
 
-  ["POST", /^\/users\/login$/, (_m, body) => {
+  ["POST", /^\/api\/users-service\/login$/, (_m, body) => {
     const user = findByUsername(String(body?.username ?? "").trim().toLowerCase());
     if (!user || user.password !== body?.password) return err(401, "Invalid username or password.");
     const mfaToken = `mock-mfa-${newId("m")}`;
@@ -84,7 +82,7 @@ export const usersRoutes = [
     return ok({ mfaToken, nextStep: user.twoFactorEnabled ? "2fa_verify" : "2fa_setup" });
   }],
 
-  ["POST", /^\/users\/2fa\/setup$/, (_m, _b, token) => {
+  ["POST", /^\/api\/users-service\/2fa\/setup$/, (_m, _b, token) => {
     const { user, error } = requireMfaUser(token);
     if (error) return error;
     if (user.twoFactorEnabled) return err(409, "Two-factor authentication is already enabled.");
@@ -96,7 +94,7 @@ export const usersRoutes = [
     });
   }],
 
-  ["POST", /^\/users\/2fa\/enable$/, (_m, body, token) => {
+  ["POST", /^\/api\/users-service\/2fa\/enable$/, (_m, body, token) => {
     const { user, error } = requireMfaUser(token);
     if (error) return error;
     if (user.twoFactorEnabled) return err(409, "Two-factor authentication is already enabled.");
@@ -107,7 +105,7 @@ export const usersRoutes = [
     return finishMfa(user, token);
   }],
 
-  ["POST", /^\/users\/2fa\/verify$/, (_m, body, token) => {
+  ["POST", /^\/api\/users-service\/2fa\/verify$/, (_m, body, token) => {
     const { user, error } = requireMfaUser(token);
     if (error) return error;
     if (!user.twoFactorEnabled) return err(400, "Two-factor authentication is not enabled.");
@@ -115,7 +113,7 @@ export const usersRoutes = [
     return finishMfa(user, token);
   }],
 
-  ["GET", /^\/users\/me$/, (_m, _b, token) => {
+  ["GET", /^\/api\/users-service\/me$/, (_m, _b, token) => {
     const { userId, error } = requireUser(token);
     if (error) return error;
     const user = db.users.find((u) => u.id === userId);
