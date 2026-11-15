@@ -16,11 +16,6 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_BASE_URL || 'http://127.0.0.1:5050',
           changeOrigin: true,
         },
-        '/user-api': {
-          target: env.USER_SERVICE_URL || 'http://localhost:3000',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/user-api/, ''),
-        },
       },
     },
   };
