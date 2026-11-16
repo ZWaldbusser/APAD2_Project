@@ -3,9 +3,11 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import "../styles/PageHeader.css";
 import { getCurrentUser } from "../services/users";
 import { useAuth } from "../context/AuthContext";
+import NotificationInbox from "./NotificationInbox";
 
 function PageHeader({ title = "HaaS Hub" }) {
   const [userName, setUserName] = useState("Guest");
+  const [userId, setUserId] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -24,7 +26,8 @@ function PageHeader({ title = "HaaS Hub" }) {
     async function loadUser() {
       const user = await getCurrentUser();
       if (user) {
-        setUserName(user.userid);
+        setUserName(user.userid || user.username);
+        setUserId(user.id);
       }
     }
     loadUser();
@@ -56,6 +59,8 @@ function PageHeader({ title = "HaaS Hub" }) {
                 </NavLink>
               ))}
             </nav>
+
+            <NotificationInbox userId={userId} />
 
             <button className="page-header__logout-btn" onClick={handleLogout}>
               Log out
