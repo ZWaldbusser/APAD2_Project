@@ -18,8 +18,8 @@ const findByUsername = (name) =>
 const safeUser = (u) => ({
   id: u.id,
   username: u.username ?? u.userid,
-  agencyCode: u.agencyCode ?? "AUS",
-  agencyName: AGENCIES[u.agencyCode ?? "AUS"],
+  agencyCode: u.agencyCode,
+  agencyName: AGENCIES[u.agencyCode],
   twoFactorEnabled: Boolean(u.twoFactorEnabled),
   createdAt: u.createdAt ?? new Date().toISOString(),
 });
@@ -142,7 +142,7 @@ export const usersRoutes = [
     const { userId, error } = requireUser(token);
     if (error) return error;
     const user = db.users.find((u) => u.id === userId);
-    return ok({ id: user.id, userid: user.userid });
+    return ok({ id: user.id, userid: user.userid, ...(user.agencyCode && { agencyCode: user.agencyCode }) });
   }],
 
   ["POST", /^\/api\/forgot_password$/, (_m, body) => {

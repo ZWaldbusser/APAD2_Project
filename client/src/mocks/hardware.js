@@ -18,7 +18,19 @@ function validate(body) {
   return null;
 }
 
+// Contract-shaped read fixtures for the current Hardware client. These are local
+// simulations, not evidence of provider authorization or tenant isolation.
 export const hardwareRoutes = [
+  ["POST", /^\/api\/hardware$/, () => ok(db.hardware.map(h => ({ ...h, version: 1 })))],
+  ["POST", /^\/api\/listAllocations$/, (_m, body) => {
+    const project = findProject(body?.projectId);
+    if (!project) return ok([]);
+    return ok(project.hardwareList.map(item => ({
+      hardware_id: item.hardwareId, project_id: project.projectID,
+      quantity: item.allocation,
+      out: project.hwSets[db.hardware.find(h => h.id === item.hardwareId)?.name] || 0,
+    })));
+  }],
   ["GET", /^\/api\/hardware$/, () => ok(db.hardware.map((h) => ({ ...h })))],
 
   ["POST", /^\/api\/hardware\/checkout$/, (_m, body, token) => {

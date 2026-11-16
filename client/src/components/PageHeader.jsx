@@ -9,7 +9,7 @@ function PageHeader({ title = "HaaS Hub" }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const hiddenOnRoutes = ["/", "/login", "/register", "/forgotpassword"];
+  const hiddenOnRoutes = ["/", "/login", "/register", "/forgotpassword", "/2fa/setup", "/2fa/verify"];
   const showNav = !hiddenOnRoutes.includes(location.pathname);
 
   const navItems = [
@@ -21,14 +21,15 @@ function PageHeader({ title = "HaaS Hub" }) {
   ];
 
   useEffect(() => {
+    if (!showNav) return;
     async function loadUser() {
       const user = await getCurrentUser();
       if (user) {
-        setUserName(user.userid);
+        setUserName(user.username ?? user.userid);
       }
     }
     loadUser();
-  }, []);
+  }, [showNav]);
 
   const handleLogout = () => {
     logout();

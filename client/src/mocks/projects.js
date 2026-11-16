@@ -1,6 +1,6 @@
 // Mock Projects service — matches Projects API v1.4 contract.
 
-import { db, ok } from "./db";
+import { db, ok, err } from "./db";
 
 const findProject = (orgId, projectId) =>
   db.projects.find((p) => p.orgId === orgId && p.projectID === projectId);
@@ -87,7 +87,8 @@ export const projectsRoutes = [
     const projectId = decodeURIComponent(m[1]);
     const url = m.input || "";
     const params = new URLSearchParams(url.split("?")[1] || "");
-    const orgId = params.get("orgId") || "AUS";
+    const orgId = params.get("orgId");
+    if (!orgId) return err(422, "orgId is required");
 
     const project = findProject(orgId, projectId);
     if (!project) return { status: 404, data: { success: false, errorMessage: "Project not found" } };
