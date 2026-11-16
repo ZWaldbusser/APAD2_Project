@@ -51,7 +51,14 @@ function Field({
   const Control = kind;
   return (
     <div className="creation-field">
-      <label htmlFor={name}>{label}</label>
+      <div className="creation-field-label">
+        <label htmlFor={name}>{label}</label>
+        {props.required && (
+          <span className="creation-required" aria-hidden="true">
+            *
+          </span>
+        )}
+      </div>
       <Control
         {...props}
         id={name}
@@ -290,9 +297,7 @@ function CreationForm({ profile }) {
     <>
       <div className="workspace-page-heading">
         <div>
-          <p className="workspace-eyebrow">PLAN YOUR TEAM'S NEXT PROJECT</p>
           <h1>Create project</h1>
-          <p>A clear purpose. The right resources. One shared workspace.</p>
         </div>
       </div>
       <form
@@ -339,13 +344,11 @@ function CreationForm({ profile }) {
             disabled={locked}
           >
             <legend>Project details</legend>
-            <p className="creation-section-intro">
-              All project details are required.
-            </p>
             <div className="creation-pair">
               <Field
                 name="orgId"
                 label="Agency"
+                required
                 kind="select"
                 value={values.orgId}
                 onChange={change("orgId")}
@@ -417,7 +420,6 @@ function CreationForm({ profile }) {
               onBlur={blur("budget")}
               error={errors.budget}
               required
-              hint="Enter a whole-dollar amount, including 0 if applicable."
               placeholder="0"
             />
           </fieldset>

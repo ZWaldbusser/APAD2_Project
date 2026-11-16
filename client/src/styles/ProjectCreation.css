@@ -40,6 +40,15 @@
   font-size: 0.85rem;
   font-weight: 600;
 }
+.creation-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.creation-required {
+  color: #a82929;
+  font-weight: 700;
+}
 .creation-field input,
 .creation-field textarea,
 .creation-field select {
