@@ -1,0 +1,223 @@
+.creation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.creation-form fieldset {
+  min-width: 0;
+  margin: 0;
+}
+.creation-form legend {
+  padding: 0 8px;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+.creation-details {
+  display: grid;
+  gap: 24px;
+}
+.creation-section-intro {
+  color: var(--workspace-muted);
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+.creation-details .creation-section-intro {
+  margin: 0;
+}
+.creation-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.creation-field {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.creation-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.creation-field input,
+.creation-field textarea,
+.creation-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  border: 1px solid var(--workspace-control-line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--brand-white);
+  color: var(--workspace-ink);
+  font: inherit;
+  line-height: 1.5;
+}
+.creation-field textarea {
+  resize: vertical;
+  min-height: 124px;
+}
+.creation-field input[aria-invalid="true"],
+.creation-field textarea[aria-invalid="true"] {
+  border-color: #a82929;
+}
+.creation-field input:disabled,
+.creation-field textarea:disabled,
+.creation-field select:disabled {
+  background: #f5f6f7;
+  color: #555b65;
+  opacity: 1;
+}
+.creation-hint,
+.creation-field-error {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.creation-hint {
+  color: var(--workspace-muted);
+}
+.creation-field-error {
+  color: #a82929;
+}
+.creation-id-status {
+  margin: -8px 0 0;
+  color: var(--workspace-muted);
+  font-size: 0.8rem;
+}
+.creation-optional {
+  color: var(--brand-orange);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0 0 12px;
+}
+.creation-hardware-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 126px;
+  gap: 18px;
+  padding: 20px 0;
+  border-top: 1px solid var(--workspace-line);
+}
+.creation-hardware-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.creation-hardware-row > div > span {
+  color: var(--workspace-muted);
+  font-size: 0.8rem;
+}
+.creation-hardware-row .creation-field label {
+  font-size: 0.75rem;
+}
+.creation-hardware-row .creation-allocated {
+  color: #24653c;
+  font-weight: 600;
+}
+.creation-selection {
+  border-top: 1px solid var(--workspace-line);
+  padding-top: 20px;
+  font-size: 0.85rem;
+  color: var(--workspace-muted);
+}
+.creation-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  border-top: 1px solid var(--workspace-line);
+  padding-top: 24px;
+}
+.creation-actions > p {
+  flex: 1;
+  color: var(--workspace-muted);
+  font-size: 0.8rem;
+}
+.creation-error-summary {
+  border: 1px solid #a82929;
+  border-left-width: 4px;
+  border-radius: 6px;
+  padding: 20px 24px;
+  margin: 0 0 28px;
+  overflow-wrap: anywhere;
+}
+.creation-error-summary h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+.creation-error-summary ul {
+  margin-bottom: 0;
+  padding-left: 20px;
+}
+.creation-error-summary a {
+  color: #922424;
+  text-underline-offset: 3px;
+  display: inline-block;
+  padding: 4px 0;
+}
+.creation-saved-note {
+  padding: 16px;
+  border: 1px solid var(--workspace-line);
+  border-radius: 6px;
+}
+.creation-success {
+  max-width: 720px;
+  padding: 48px;
+  margin: 40px auto;
+}
+.creation-success-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--brand-orange);
+  border-radius: 50%;
+  color: var(--brand-orange);
+  font-size: 1.5rem;
+  margin-bottom: 24px;
+}
+.creation-success h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.2;
+}
+.creation-success p {
+  overflow-wrap: anywhere;
+}
+.creation-success-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 32px;
+}
+@media (max-width: 1200px) {
+  .creation-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .creation-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .creation-actions {
+    flex-wrap: wrap;
+  }
+  .creation-actions > p {
+    flex-basis: 100%;
+  }
+  .creation-actions button {
+    flex: 1;
+  }
+  .creation-success {
+    padding: 24px;
+    margin: 20px auto;
+  }
+}
+@media (max-width: 420px) {
+  .creation-hardware-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

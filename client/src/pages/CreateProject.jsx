@@ -1,291 +1,566 @@
-import { useEffect, useState } from "react";
-import "../styles/Login.css";
-import { useNavigate } from "react-router-dom";
-import { users, projects, hardware } from "../services";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { projects, hardware } from "../services";
+import { useWorkspace } from "../context/WorkspaceContext";
+import { useRead } from "../hooks/useRead";
+import { agencyNames, projectPath } from "../projectContext";
+import WorkspaceState from "../components/WorkspaceState";
+import "../styles/ProjectCreation.css";
 
-const ORG_OPTIONS = [
-  { code: "AUS", label: "City of Austin" },
-  { code: "DAL", label: "City of Dallas" },
-  { code: "TEX", label: "State of Texas" },
-];
+const hardwareId = (item) => item.id || item._id;
+const stock = (item) =>
+  item.unallocated ??
+  Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
+const allocationLimit = (item) => Math.min(stock(item), 1000000);
+const fieldLabels = {
+  projectId: "Project ID",
+  projectName: "Project name",
+  projectDesc: "Description",
+  budget: "Budget (USD)",
+};
 
-function CreateProject() {
-  const [orgId, setOrgId] = useState("AUS");
-  const [projectId, setProjectId] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [projectDesc, setProjectDesc] = useState("");
-  const [budget, setBudget] = useState("");
-  const [owner, setOwner] = useState(null);
-  const [error, setError] = useState("");
-  const [hardwareList, setHardwareList] = useState([]);
-  const [quantities, setQuantities] = useState({});
-  const [hardwareLoading, setHardwareLoading] = useState(true);
-  const [hardwareError, setHardwareError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [projectCreated, setProjectCreated] = useState(false);
-  const [allocatedIds, setAllocatedIds] = useState([]);
+function fieldError(field, value) {
+  if (field === "projectId") {
+    if (!value.trim()) return "Enter a project ID.";
+    if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(value))
+      return "Use 1–100 letters, numbers, _, ., :, @, or -.";
+  }
+  if (field === "projectName" && !value.trim()) return "Enter a project name.";
+  if (field === "projectDesc" && !value.trim())
+    return "Describe the project's purpose.";
+  // Preserve current whole-dollar behavior until partner precision is confirmed.
+  if (
+    field === "budget" &&
+    (value === "" || !Number.isInteger(Number(value)) || Number(value) < 0)
+  )
+    return "Enter a whole-dollar budget of 0 or greater.";
+  return "";
+}
 
-  const loadHardware = async () => {
-    setHardwareLoading(true);
-    setHardwareError("");
-    try {
-      setHardwareList(await hardware.getAllHardware());
-    } catch (err) {
-      setHardwareError(err.message || "Could not load hardware");
-    } finally {
-      setHardwareLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let active = true;
-    hardware.getAllHardware().then((items) => {
-      if (active) setHardwareList(items);
-    }).catch((err) => {
-      if (active) setHardwareError(err.message || "Could not load hardware");
-    }).finally(() => {
-      if (active) setHardwareLoading(false);
-    });
-    return () => { active = false; };
-  }, []);
-
-  const [idStatus, setIdStatus] = useState("idle");
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    async function loadUser() {
-      const user = await users.getCurrentUser();
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-      setOwner(user);
-    }
-    loadUser();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!projectId || projectCreated) return;
-
-    let active = true;
-    const timeoutId = setTimeout(async () => {
-      try {
-        const res = await projects.getProject(projectId, orgId);
-        if (!active) return;
-        if (res.status === 404) {
-          setIdStatus("available");
-        } else if (res.ok) {
-          setIdStatus("taken");
-        } else {
-          setIdStatus("idle");
-        }
-      } catch {
-        if (active) setIdStatus("idle");
-      }
-    }, 400);
-
-    return () => { active = false; clearTimeout(timeoutId); };
-  }, [projectId, orgId, projectCreated]);
-
-  const handleCreate = async () => {
-    if (submitting) return;
-    setError("");
-
-    if (!projectId) {
-      setError("Project ID is required");
-      return;
-    }
-    if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(projectId)) {
-      setError("Project ID must be 1–100 characters using letters, numbers, _, ., :, @, or -.");
-      return;
-    }
-    if (!projectName) {
-      setError("Project Name is required");
-      return;
-    }
-    if (idStatus === "taken") {
-      setError("Project ID already exists for this agency");
-      return;
-    }
-    if (budget === "" || !Number.isInteger(Number(budget)) || Number(budget) < 0) {
-      setError("Budget must be a whole number of 0 or greater");
-      return;
-    }
-
-    const getId = (item) => item._id || item.id;
-    const selectedHardware = hardwareList.filter((item) => Number(quantities[getId(item)] || 0) > 0 && !allocatedIds.includes(getId(item)));
-    if (hardwareList.some((item) => {
-      if (allocatedIds.includes(getId(item))) return false;
-      const quantity = Number(quantities[getId(item)] || 0);
-      const unallocated = item.unallocated ?? Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
-      return !Number.isInteger(quantity) || quantity < 0 || quantity > Math.min(unallocated, 1000000);
-    })) {
-      setError("Allocation quantities must be whole numbers within the unallocated stock.");
-      return;
-    }
-
-    setSubmitting(true);
-    let created = projectCreated;
-    try {
-      if (!created) {
-        const res = await projects.createProject({
-          orgId,
-          projectId,
-          projectName,
-          projectDesc,
-          creatorId: owner.userid || owner.id,
-          budget: Number(budget),
-          hardwareList: selectedHardware.map((item) => ({ hardwareId: getId(item), allocation: Number(quantities[getId(item)]) })),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          if (res.status === 409) {
-            setIdStatus("taken");
-            setError("Project ID already exists for this agency");
-          } else if (res.status === 422) {
-            const msg = Array.isArray(data.detail)
-              ? data.detail.map((d) => d.msg).join(", ")
-              : data.errorMessage || "Validation error";
-            setError(msg);
-          } else {
-            setError(data.errorMessage || "Could not create project");
-          }
-          return;
-        }
-
-        created = true;
-        setProjectCreated(true);
-        setIdStatus("idle");
-      }
-
-      const failures = await hardware.allocateProjectHardware({
-        projectId, orgId,
-        items: selectedHardware.map((item) => ({
-          hardwareId: getId(item), name: item.name,
-          quantity: Number(quantities[getId(item)]),
-        })),
-        onAllocated: (id) => setAllocatedIds((ids) => [...ids, id]),
-      });
-      if (failures.length) {
-        setError(`Project created. Some allocations failed: ${failures.join("; ")}. Retry to allocate the remaining hardware.`);
-        return;
-      }
-
-      navigate("/projects");
-    } catch (err) {
-      setError(`${created ? "Project created. Retry the remaining allocations. " : ""}${err.message || "Could not reach server"}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const idHelperText = {
-    idle: "",
-    checking: "Checking availability...",
-    available: "Available",
-    taken: "Project ID already exists for this agency",
-  }[idStatus];
-
-  const idHelperClass = {
-    idle: "",
-    checking: "helper-text",
-    available: "helper-text success-text",
-    taken: "error-text",
-  }[idStatus];
-
-  const canSubmit = owner && projectId && projectName && budget !== "" && idStatus !== "taken" && idStatus !== "checking" && !submitting;
-
+function Field({
+  name,
+  label,
+  value,
+  onChange,
+  onBlur,
+  error,
+  hint,
+  kind = "input",
+  ...props
+}) {
+  const Control = kind;
   return (
-    <div>
-      <main className="login-page">
-        <div className="login-box create-project-box">
-          <h1>Create Project</h1>
-
-          <label>Agency</label>
-          <select disabled={submitting || projectCreated} value={orgId} onChange={(e) => setOrgId(e.target.value)}>
-            {ORG_OPTIONS.map((o) => (
-              <option key={o.code} value={o.code}>{o.label} ({o.code})</option>
-            ))}
-          </select>
-
-          <label>Project ID</label>
-          <input
-            type="text"
-            placeholder="Enter a unique project ID"
-            value={projectId}
-            disabled={submitting || projectCreated}
-            maxLength={100}
-            onChange={(e) => {
-              const id = e.target.value.trim();
-              setProjectId(id);
-              setIdStatus(id ? "checking" : "idle");
-            }}
-          />
-          {idHelperText && <p className={idHelperClass}>{idHelperText}</p>}
-
-          <label>Project Name</label>
-          <input
-            type="text"
-            placeholder="Enter project name"
-            value={projectName}
-            disabled={submitting || projectCreated}
-            onChange={(e) => setProjectName(e.target.value)}
-          />
-
-          <label>Description</label>
-          <input
-            type="text"
-            placeholder="Enter description (optional)"
-            value={projectDesc}
-            disabled={submitting || projectCreated}
-            onChange={(e) => setProjectDesc(e.target.value)}
-          />
-
-          <label>Budget (USD)</label>
-          <input
-            type="number"
-            placeholder="Enter budget"
-            min="0"
-            value={budget}
-            disabled={submitting || projectCreated}
-            onChange={(e) => setBudget(e.target.value)}
-          />
-
-          <h2>Hardware Allocation</h2>
-          <p>Enter the quantity to allocate for each hardware item. Leave 0 for items you do not need.</p>
-          {hardwareLoading && <p role="status">Loading hardware...</p>}
-          {hardwareError && <div role="alert"><p className="error-text">{hardwareError}</p><button onClick={loadHardware}>Retry loading hardware</button></div>}
-          {!hardwareLoading && !hardwareError && hardwareList.length === 0 && <p>No hardware is available.</p>}
-          {hardwareList.map((item) => {
-            const itemId = item._id || item.id;
-            const unallocated = item.unallocated ?? Math.max((item.total ?? item.capacity ?? 0) - (item.reserved ?? 0), 0);
-            const allocated = allocatedIds.includes(itemId);
-            return (
-              <div key={itemId}>
-                <label htmlFor={`allocation-${itemId}`}>{item.name} ({item.asset_tag || itemId}) — {unallocated} unallocated{allocated ? " — Allocated" : ""}</label>
-                <input
-                  id={`allocation-${itemId}`}
-                  type="number"
-                  min="0"
-                  max={Math.min(unallocated, 1000000)}
-                  step="1"
-                  value={quantities[itemId] ?? 0}
-                  disabled={submitting || projectCreated || allocated}
-                  onChange={(e) => setQuantities({ ...quantities, [itemId]: e.target.value })}
-                />
-              </div>
-            );
-          })}
-
-          {error && <p className="error-text" role="alert">{error}</p>}
-
-          <button onClick={handleCreate} disabled={!canSubmit}>{submitting ? "Saving..." : projectCreated ? "Retry Allocations" : "Create Project"}</button>
-          <button onClick={() => navigate("/projects")} disabled={submitting}>{projectCreated ? "Back to Projects" : "Cancel"}</button>
-        </div>
-      </main>
+    <div className="creation-field">
+      <label htmlFor={name}>{label}</label>
+      <Control
+        {...props}
+        id={name}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        aria-invalid={Boolean(error)}
+        aria-describedby={
+          [hint && `${name}-hint`, error && `${name}-error`]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+      />
+      {hint && (
+        <p className="creation-hint" id={`${name}-hint`}>
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p className="creation-field-error" id={`${name}-error`}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-export default CreateProject;
+function CreationForm({ profile }) {
+  const navigate = useNavigate();
+  const [values, setValues] = useState({
+    orgId: profile.agencyCode,
+    projectId: "",
+    projectName: "",
+    projectDesc: "",
+    budget: "",
+  });
+  const [quantities, setQuantities] = useState({});
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const summary = useRef(null);
+  const saving = useRef(false);
+  const savedRequest = useRef(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [complete, setComplete] = useState(false);
+  const [allocatedIds, setAllocatedIds] = useState([]);
+  const [idCheck, setIdCheck] = useState(null);
+  const loadHardware = useCallback(() => hardware.getAllHardware(), []);
+  const inventory = useRead(loadHardware, "creation-inventory");
+  const catalog = inventory.value || [];
+  const idKey = JSON.stringify([values.orgId, values.projectId]);
+  const idStatus =
+    created || !values.projectId
+      ? "idle"
+      : idCheck?.key === idKey
+        ? idCheck.status
+        : "checking";
+
+  useEffect(() => {
+    if (attempt) summary.current?.focus();
+  }, [attempt]);
+  useEffect(() => {
+    if (
+      !values.projectId ||
+      created ||
+      fieldError("projectId", values.projectId)
+    )
+      return;
+    let active = true;
+    const timer = setTimeout(async () => {
+      let status = "unknown";
+      try {
+        const res = await projects.getProject(values.projectId, values.orgId);
+        status =
+          res.status === 404 ? "available" : res.ok ? "taken" : "unknown";
+      } catch {
+        /* Submission still receives authoritative service validation. */
+      }
+      if (active) setIdCheck({ key: idKey, status });
+    }, 400);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [values.projectId, values.orgId, created, idKey]);
+
+  const change = (field) => (event) =>
+    setValues((current) => ({
+      ...current,
+      [field]:
+        field === "projectId" ? event.target.value.trim() : event.target.value,
+    }));
+  const blur = (field) => () =>
+    setErrors((current) => {
+      const next = { ...current },
+        error = fieldError(field, values[field]);
+      if (error) next[field] = error;
+      else delete next[field];
+      return next;
+    });
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (saving.current) return;
+    setMessage("");
+    if (!created) {
+      const invalid = {};
+      for (const field of Object.keys(fieldLabels)) {
+        const error = fieldError(field, values[field]);
+        if (error) invalid[field] = error;
+      }
+      if (idStatus === "taken")
+        invalid.projectId = `This ID already exists in ${values.orgId}. Choose another ID.`;
+      for (const item of catalog) {
+        const quantity = Number(quantities[hardwareId(item)] || 0);
+        if (
+          !Number.isInteger(quantity) ||
+          quantity < 0 ||
+          quantity > allocationLimit(item)
+        )
+          invalid[`allocation-${hardwareId(item)}`] =
+            `Enter a whole number from 0 to ${allocationLimit(item)} for ${item.name}.`;
+      }
+      setErrors(invalid);
+      if (Object.keys(invalid).length) {
+        setAttempt((n) => n + 1);
+        return;
+      }
+    }
+    saving.current = true;
+    setSubmitting(true);
+    let projectExists = created;
+    try {
+      if (!projectExists) {
+        const items = catalog
+          .filter((item) => Number(quantities[hardwareId(item)] || 0) > 0)
+          .map((item) => ({
+            hardwareId: hardwareId(item),
+            name: item.name,
+            quantity: Number(quantities[hardwareId(item)]),
+          }));
+        const payload = {
+          ...values,
+          projectName: values.projectName.trim(),
+          projectDesc: values.projectDesc.trim(),
+          creatorId: profile.id,
+          budget: Number(values.budget),
+          hardwareList: items.map((item) => ({
+            hardwareId: item.hardwareId,
+            allocation: item.quantity,
+          })),
+        };
+        const res = await projects.createProject(payload);
+        const data = await res.json();
+        if (!res.ok || data.success === false) {
+          const detail = Array.isArray(data.detail)
+            ? data.detail.map((item) => item.msg).join("; ")
+            : data.errorMessage || data.error;
+          setMessage(
+            typeof detail === "string"
+              ? detail
+              : res.status === 409
+                ? "These details conflict with an existing project. Check the ID and name."
+                : "We couldn't create the project. Check the details and try again.",
+          );
+          setAttempt((n) => n + 1);
+          return;
+        }
+        savedRequest.current = { ...payload, items };
+        projectExists = true;
+        setCreated(true);
+      }
+      const saved = savedRequest.current;
+      const failures = await hardware.allocateProjectHardware({
+        orgId: saved.orgId,
+        projectId: saved.projectId,
+        items: saved.items.filter(
+          (item) => !allocatedIds.includes(item.hardwareId),
+        ),
+        onAllocated: (id) => setAllocatedIds((current) => [...current, id]),
+      });
+      if (failures.length) {
+        setMessage(
+          `Your project is saved. Retry only the remaining allocations: ${failures.join("; ")}`,
+        );
+        setAttempt((n) => n + 1);
+      } else setComplete(true);
+    } catch (error) {
+      setMessage(
+        `${projectExists ? "Your project is saved. Retry only the remaining allocations. " : "We couldn't confirm project creation. "}${error.message || "Please try again."}`,
+      );
+      setAttempt((n) => n + 1);
+    } finally {
+      saving.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  if (complete)
+    return (
+      <section
+        className="workspace-panel creation-success"
+        aria-labelledby="creation-success-title"
+      >
+        <span className="creation-success-mark" aria-hidden="true">
+          ✓
+        </span>
+        <p className="workspace-eyebrow">READY FOR YOUR TEAM</p>
+        <h1 id="creation-success-title">Project created</h1>
+        <p>
+          <strong>{values.projectName.trim()}</strong> · {values.orgId} /{" "}
+          {values.projectId}
+        </p>
+        <p>
+          {allocatedIds.length
+            ? "Your initial hardware allocations are saved."
+            : "No initial hardware allocation was requested."}
+        </p>
+        <div className="creation-success-actions">
+          <Link className="workspace-button" to={projectPath(values)}>
+            View project
+          </Link>
+          <Link className="workspace-button secondary" to="/projects">
+            Back to projects
+          </Link>
+        </div>
+      </section>
+    );
+
+  const locked = submitting || created;
+  const selectedItems = catalog.filter(
+    (item) => Number(quantities[hardwareId(item)] || 0) > 0,
+  );
+  return (
+    <>
+      <div className="workspace-page-heading">
+        <div>
+          <p className="workspace-eyebrow">PLAN YOUR TEAM'S NEXT PROJECT</p>
+          <h1>Create project</h1>
+          <p>A clear purpose. The right resources. One shared workspace.</p>
+        </div>
+      </div>
+      <form
+        className="creation-form"
+        aria-label="Create project"
+        noValidate
+        onSubmit={submit}
+      >
+        {(Object.keys(errors).length > 0 || message) && (
+          <div
+            ref={summary}
+            className="creation-error-summary"
+            role="alert"
+            aria-label="Check project details"
+            tabIndex={-1}
+          >
+            <h2>
+              {created
+                ? "Project saved · allocations need attention"
+                : "Check project details"}
+            </h2>
+            {message && <p>{message}</p>}
+            {Object.keys(errors).length > 0 && (
+              <ul>
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field}>
+                    <a href={`#${field}`}>{error}</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {created && (
+          <p className="creation-saved-note" role="status">
+            The project already exists. Completed allocations are marked below.
+            Project details and requested quantities stay locked while you
+            retry.
+          </p>
+        )}
+        <div className="creation-grid">
+          <fieldset
+            className="workspace-panel creation-details"
+            disabled={locked}
+          >
+            <legend>Project details</legend>
+            <p className="creation-section-intro">
+              All project details are required.
+            </p>
+            <div className="creation-pair">
+              <Field
+                name="orgId"
+                label="Agency"
+                kind="select"
+                value={values.orgId}
+                onChange={change("orgId")}
+                hint="Choose the agency for this project."
+              >
+                {Object.entries(agencyNames).map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name} ({id})
+                  </option>
+                ))}
+              </Field>
+              <Field
+                name="projectId"
+                label="Project ID"
+                value={values.projectId}
+                onChange={change("projectId")}
+                onBlur={blur("projectId")}
+                error={errors.projectId}
+                required
+                maxLength={100}
+                autoComplete="off"
+                hint="Use a short ID your team can recognize."
+              />
+            </div>
+            {!created &&
+              values.projectId &&
+              !fieldError("projectId", values.projectId) && (
+                <p className="creation-id-status" role="status">
+                  {idStatus === "checking"
+                    ? "Checking this ID…"
+                    : idStatus === "available"
+                      ? `No existing project with this ID in ${values.orgId}.`
+                      : idStatus === "taken"
+                        ? `This ID already exists in ${values.orgId}.`
+                        : "ID availability couldn't be checked. Creation will validate it."}
+                </p>
+              )}
+            <Field
+              name="projectName"
+              label="Project name"
+              value={values.projectName}
+              onChange={change("projectName")}
+              onBlur={blur("projectName")}
+              error={errors.projectName}
+              required
+              autoComplete="off"
+              placeholder="e.g. Library workstation refresh"
+            />
+            <Field
+              name="projectDesc"
+              label="Description"
+              kind="textarea"
+              value={values.projectDesc}
+              onChange={change("projectDesc")}
+              onBlur={blur("projectDesc")}
+              error={errors.projectDesc}
+              required
+              rows={4}
+              placeholder="What will this project achieve for your agency?"
+            />
+            <Field
+              name="budget"
+              label="Budget (USD)"
+              type="number"
+              min="0"
+              step="1"
+              value={values.budget}
+              onChange={change("budget")}
+              onBlur={blur("budget")}
+              error={errors.budget}
+              required
+              hint="Enter a whole-dollar amount, including 0 if applicable."
+              placeholder="0"
+            />
+          </fieldset>
+          <fieldset
+            className="workspace-panel creation-hardware"
+            disabled={locked}
+          >
+            <legend>Initial hardware</legend>
+            <p className="creation-optional">OPTIONAL</p>
+            <p className="creation-section-intro">
+              Reserve resources now, or create your project without an initial
+              allocation.
+            </p>
+            {inventory.status === "loading" && (
+              <p role="status">Loading hardware…</p>
+            )}
+            {inventory.status === "error" && (
+              <div role="alert">
+                <p>
+                  Hardware is unavailable. You can still create the project
+                  without an initial allocation.
+                </p>
+                <button
+                  type="button"
+                  className="workspace-button secondary"
+                  onClick={inventory.retry}
+                >
+                  Retry hardware
+                </button>
+              </div>
+            )}
+            {inventory.status === "ready" && catalog.length === 0 && (
+              <p>
+                No hardware is currently listed. You can create the project
+                without an initial allocation.
+              </p>
+            )}
+            {catalog.map((item) => {
+              const id = hardwareId(item),
+                allocated = allocatedIds.includes(id);
+              return (
+                <div className="creation-hardware-row" key={id}>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>
+                      {id} · {stock(item)} unallocated units
+                    </span>
+                    {allocated && (
+                      <span className="creation-allocated" role="status">
+                        Allocation saved
+                      </span>
+                    )}
+                  </div>
+                  <Field
+                    name={`allocation-${id}`}
+                    label={`Allocate ${item.name}`}
+                    type="number"
+                    min="0"
+                    max={allocationLimit(item)}
+                    step="1"
+                    value={quantities[id] ?? 0}
+                    onChange={(event) =>
+                      setQuantities({ ...quantities, [id]: event.target.value })
+                    }
+                    error={errors[`allocation-${id}`]}
+                  />
+                </div>
+              );
+            })}
+            <p className="creation-selection" aria-live="polite">
+              {selectedItems.length
+                ? `${selectedItems.length} hardware ${selectedItems.length === 1 ? "type" : "types"} selected`
+                : "No initial allocation selected"}
+            </p>
+          </fieldset>
+        </div>
+        <div className="creation-actions">
+          <p>
+            {created
+              ? "Leaving this page ends the current allocation retry session."
+              : "You’ll be recorded as the project creator."}
+          </p>
+          <button
+            type="button"
+            className="workspace-button secondary"
+            disabled={submitting}
+            onClick={() => navigate("/projects")}
+          >
+            {created ? "Back to projects" : "Cancel"}
+          </button>
+          <button
+            className="workspace-button"
+            type="submit"
+            disabled={
+              submitting ||
+              (!created &&
+                idStatus === "checking" &&
+                !fieldError("projectId", values.projectId))
+            }
+          >
+            {submitting
+              ? "Saving…"
+              : created
+                ? "Retry remaining allocations"
+                : "Create project"}
+          </button>
+        </div>
+      </form>
+    </>
+  );
+}
+
+export default function CreateProject() {
+  const profile = useWorkspace();
+  return (
+    <main className="workspace-page creation-page">
+      <Link className="workspace-back" to="/projects">
+        ← Back to projects
+      </Link>
+      {profile.status === "loading" ? (
+        <WorkspaceState headingLevel={1} title="Loading workspace…" loading>
+          Checking your account and agency.
+        </WorkspaceState>
+      ) : profile.status === "error" ? (
+        <WorkspaceState
+          headingLevel={1}
+          title="Workspace unavailable"
+          action={
+            <button className="workspace-button" onClick={profile.retry}>
+              Try again
+            </button>
+          }
+        >
+          We couldn't verify your account.
+        </WorkspaceState>
+      ) : !profile.value.agencyCode ? (
+        <WorkspaceState headingLevel={1} title="Agency unavailable">
+          Confirm your account's agency with your team before creating a
+          project.
+        </WorkspaceState>
+      ) : (
+        <CreationForm profile={profile.value} />
+      )}
+    </main>
+  );
+}

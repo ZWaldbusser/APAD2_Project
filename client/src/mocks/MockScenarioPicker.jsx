@@ -16,6 +16,7 @@ export default function MockScenarioPicker() {
         <option value="unavailable">Projects unavailable</option>
         <option value="not-found">Project not found</option>
         <option value="hardware-unavailable">Equipment unavailable</option>
+        <option value="allocation-partial">One allocation fails once</option>
       </select>
     </label>
   );

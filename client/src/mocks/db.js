@@ -41,6 +41,9 @@ export const db = {
     { id: "HW001", name: "HWSet1", capacity: 100, available: 80 },
     { id: "HW002", name: "HWSet2", capacity: 100, available: 100 },
   ],
+  // Actual mock reservations are independent of the project's creation plan.
+  allocations: [{ hardware_id: "HW001", project_id: "P1", quantity: 20 }],
+  allocationFailures: [],
 };
 
 let nextId = 100;

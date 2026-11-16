@@ -56,3 +56,26 @@ Router/UI regression tests exercise real service clients with responses supplied
 The workspace reads `GET /api/users-service/me` as `{ user: { id, username, agencyCode, ... } }`. Missing or unsupported agency blocks project browsing; canonical user IDs are compared to `joined_users` for details. Current equipment allocations come from the Hardware client, independently of project details. A Hardware read failure leaves the project visible with an equipment-only retry.
 
 Browser routes retain both orgId and projectId. Hardware reads still use the existing project-ID-only contract: this UI does not establish server tenant isolation or global ID uniqueness. Fixtures, automated checks and self-review do not establish owner acceptance, live-provider acceptance, deployment, or release readiness. Equipment eligibility and the shared identifier guarantee still require team agreement before affected acceptance can be completed.
+
+## Increment #11: create-project review
+
+This increment is developed on `codex/11-civic-orange-create-project`, stacked on PR #17 head `d638124313c7609ef724475bdc2e97e04d1ecae1`. Its draft PR targets `feature/10-civic-orange-projects` while #17 awaits review/merge. Only #11 changes appear in that comparison. After #17 merges, reconcile and retarget this PR to main; do not merge the stacked PR into the #17 branch to release it.
+
+Create isolated snapshots from any existing clone:
+
+```powershell
+git fetch origin
+git worktree add --detach ..\APAD2-create-before d638124313c7609ef724475bdc2e97e04d1ecae1
+git worktree add --detach ..\APAD2-create-after origin/codex/11-civic-orange-create-project
+```
+
+In separate PowerShell windows, run `npm ci --prefix client` in each snapshot and set `$env:VITE_USE_MOCKS = 'true'`. Start the frontend with `npm run dev --prefix client -- --host 127.0.0.1 --port 4290 --strictPort` for before and port `4291` for after. Open [before creation](http://127.0.0.1:4290/createproject) and [after creation](http://127.0.0.1:4291/createproject). These localhost links need the servers on each reviewer's own machine. Login/MFA instructions above apply; after login, open the create-project URL again or choose Create project from Projects.
+
+1. Submit the empty refreshed form. The focused error summary links to required fields, with matching inline messages. Description is required. Try a negative budget and an allocation beyond displayed unallocated stock; invalid forms send no creation request.
+2. Use a fresh ID such as `CIVIC-26`, name, description and budget. Create without hardware and choose **View project**. The new detail page should use the selected agency/project context and show the canonical creator ID.
+3. Before entering a second project, select **One allocation fails once** under Review scenario. This reloads and resets the local dataset. Enter project details and allocate HWSet1 = 3 and HWSet2 = 2. Submit: the project is saved, HWSet1 is marked **Allocation saved**, and the form is locked. **Retry remaining allocations** completes HWSet2 without creating another project or reallocating HWSet1. View project and confirm the allocation quantities 3 and 2. Restore Standard data afterward.
+4. Review with keyboard and phone layout. Check summary focus, labels, optional inventory errors, and the ability to cancel before saving. Explore freely after the guided checks.
+
+The before snapshot has the older modal-like long form, optional description and unassociated labels. Its mock allocation-write route is missing, so optional allocations cannot complete in that local baseline. After adds an explicit local allocation fixture: project creation metadata no longer becomes an allocation by itself. The same seed reservation is 20 of 100 HWSet1 units; the after catalog explicitly supplies 80 unallocated units, correcting the baseline mock fallback of 100. This is a fixture correction, not live-provider evidence.
+
+The production Projects and Hardware clients, allocation orchestrator, backend, token/session handling and API paths are unchanged. The existing project-create then Hardware-allocation sequence and remaining-only retry are retained. Agency selection is preserved and initially uses the verified profile agency; the service remains responsible for validating eligibility. Existing whole-dollar budget validation is preserved pending P2 precision confirmation. Project-agency assignment, global ID/Hardware agency scoping, allocation-write ownership and live acceptance remain unresolved team gates. This increment does not decide them or authorize later increments.
