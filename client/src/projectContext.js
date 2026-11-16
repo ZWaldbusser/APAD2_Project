@@ -21,12 +21,4 @@ export const isProjectSummary = (project) =>
 
 export const hasDisplayableDetails = (project) =>
   (project.projectDesc == null || typeof project.projectDesc === "string") &&
-  (project.creatorId == null || isIdentifier(project.creatorId)) &&
-  (!Array.isArray(project.hardwareList) ||
-    project.hardwareList.every(
-      (item) =>
-        item &&
-        isIdentifier(item.hardwareId) &&
-        typeof item.allocation === "number" &&
-        Number.isFinite(item.allocation),
-    ));
+  (project.creatorId == null || isIdentifier(project.creatorId));

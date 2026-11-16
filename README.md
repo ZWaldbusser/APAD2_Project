@@ -1,103 +1,104 @@
-# AppDevProjectTemplate
-Template for MIS385N (Advanced Programming and App Development) Team Project
-# Project Overview
+# Hardware rental project
 
-This project is a web application built using Flask and MongoDB, and React. The application manages users, projects, and hardware sets, allowing users to log in, join projects, and request hardware. The backend consists of four main Python files that handle different aspects of the application's functionality.
+React frontend with a Flask backend that integrates local MongoDB user accounts,
+the Projects REST API, and the Hardware gRPC API.
 
-## 1. `app.py`
+## Run locally
 
-This file is the main entry point of the application. It sets up the Flask web server and defines various routes for handling user requests.
+1. Copy `.env.example` to `.env` and configure `MONGO_URI`, `JWT_SECRET_KEY`,
+   `PROJECTS_API_BASE_URL`, `HARDWARE_API_BASE_URL_grpc`, and `HARDWARE_API_KEY`.
+2. Install dependencies: `npm install`, `npm install --prefix client`, and
+   `python -m pip install -r server/requirements.txt`.
+3. Run `npm run dev` from the repository root.
 
-- **Routes:**
-  - `/login`: Handles user login.
-  - `/main`: Handles requests to the main user portal.
-  - `/join_project`: Allows a user to join a project.
-  - `/add_user`: Adds a new user to the database.
-  - `/get_user_projects_list`: Retrieves the list of projects a user is part of.
-  - `/create_project`: Creates a new project.
-  - `/get_project_info`: Retrieves information about a project.
-  - `/get_all_hw_names`: Retrieves a list of all hardware set names.
-  - `/get_hw_info`: Retrieves information about a specific hardware set.
-  - `/check_out`: Handles hardware checkout for a project.
-  - `/check_in`: Handles hardware check-in for a project.
-  - `/create_hardware_set`: Creates a new hardware set.
-  - `/api/inventory`: Checks the inventory of projects.
+Vite reads the root `.env`. `VITE_API_BASE_URL` points to Flask (locally
+`http://127.0.0.1:5050`). In production, leave it empty for same-origin requests.
+Rebuild after changing Vite variables. Live services are the default;
+`VITE_USE_MOCKS=true` explicitly enables the development mocks.
 
-## 2. `hardwareDB.py`
+## Service boundaries
 
-This file contains functions for managing hardware sets in the database.
+- `client/src/services/http.js`: shared browser HTTP/session transport.
+- `client/src/services/projects.js`: Projects API operations.
+- `client/src/services/hardware.js`: inventory, allocations, retry orchestration,
+  and joined allocation/catalog data for project details and resource rental.
+- `client/src/services/users.js`: local MongoDB user authentication.
+- `server/app.py`: Flask entry point, users, authentication, and hardware routes.
+- `server/routes/projects.py`: authenticated Projects API routes under
+  `/api/projects-service`, separate from React's `/projects/...` navigation.
+- `server/services/projects.py`: server-to-server REST transport using
+  `PROJECTS_API_BASE_URL`; forwards API status codes and JSON bodies.
+- `server/hardwareDatabase.py`: hardware application operations and response mapping.
+- `server/hardware/client.py`: working gRPC transport and checkout lookup logic.
+- `server/hardware/hardware.proto` and generated bindings: hardware wire contract.
+- `server/usersDatabase.py` and `server/db.py`: MongoDB user persistence.
 
-- **Functions:**
-  - `createHardwareSet`: Creates a new hardware set.
-  - `queryHardwareSet`: Queries a hardware set by its name.
-  - `updateAvailability`: Updates the availability of a hardware set.
-  - `requestSpace`: Requests a certain amount of hardware from a set.
-  - `getAllHwNames`: Retrieves a list of all hardware set names.
+`server/projectsDatabase.py` is retained as legacy code and is not used by the
+application. Project creation, search, details, membership, and price-context
+requests all use the Projects API. Hardware operations validate projects there,
+so projects do not need a duplicate local MongoDB record.
 
-## 3. `projectsDB.py`
+## Project and hardware synchronization
 
-This file contains functions for managing projects in the database.
+Create sends the project and its planned `hardwareList` (`hardwareId`,
+`allocation`) to the Projects API, then reserves the selected quantities through
+Flask's gRPC bridge. Allocation versions come from the latest inventory. Successful
+allocations are recorded in the form so retries after a partial failure only
+process remaining items and never recreate the project. Project fields and planned
+quantities are locked after creation. These are separate services, so creation and
+allocation are not an atomic transaction; a failed reservation leaves the project
+available with a retry message.
 
-- **Functions:**
-  - `queryProject`: Queries a project by its ID.
-  - `createProject`: Creates a new project.
-  - `addUser`: Adds a user to a project.
-  - `updateUsage`: Updates the usage of a hardware set in a project.
-  - `checkOutHW`: Handles hardware checkout for a project.
-  - `checkInHW`: Handles hardware check-in for a project.
+The Hardware API owns actual reservations and checkout quantities. Project details
+and resource rental read all allocation pages and join them to hardware names.
+Remaining project capacity is `quantity - out`; check-in/out refreshes these values.
+Check-in reads all outstanding checkouts for the authenticated MongoDB user before
+returning units. An excessive return is rejected before any writes. A return across
+multiple checkout records uses multiple RPCs; if a later RPC fails, the client
+reloads the allocations to show earlier completed returns.
 
-## 4. `usersDB.py`
+Agency is carried from project creation/dashboard into hardware writes for remote
+project validation. Hardware `project_id` continues to use the existing plain
+project ID. The Projects contract allows identical IDs across agencies, while the
+hardware contract has no agency field: use globally unique project IDs until the
+teams agree on a shared namespaced identifier (the contract proposes
+`orgId:projectId`). Changing that convention requires migrating existing allocations.
 
-This file contains functions for managing users in the database.
+## Hardware gRPC configuration
 
-- **Functions:**
-  - `addUser`: Adds a new user to the database.
-  - `__queryUser`: Helper function to query a user by username and userId.
-  - `login`: Authenticates a user and handles login.
-  - `joinProject`: Adds a user to a project.
-  - `getUserProjectsList`: Retrieves the list of projects a user is part of.
+`HARDWARE_API_BASE_URL_grpc` is a service host without `/api`. HTTPS and bare
+`host:port` targets use TLS; `http://localhost:50051` is plaintext for local tests.
+`HARDWARE_API_KEY` and `HARDWARE_API_TEAM` (default `front-end`) are sent as Basic
+authorization metadata and stay on the server. All hardware calls use gRPC;
+`HARDWARE_API_BASE_URL` and old browser proxy URLs are not used.
 
-## How the Files Interact
+`HARDWARE_API_TIMEOUT_SECONDS` and `PROJECTS_API_TIMEOUT_SECONDS` default to 10.
+Hardware mutations have unique request IDs; a transient `UNAVAILABLE` retry reuses
+the same ID within the original deadline. Version conflicts return HTTP 409.
+Project mutations are not automatically retried.
 
-1. **User Management (`usersDB.py`):**
-   - `addUser` function in `usersDB.py` is used to add new users to the database.
-   - `login` function in `usersDB.py` is used to authenticate users when they log in through the `/login` route in `app.py`.
-   - `joinProject` function in `usersDB.py` adds users to projects and interacts with `projectsDB.py` to update project information.
+Regenerate bindings after changing the proto:
 
-2. **Project Management (`projectsDB.py`):**
-   - `createProject` function in `projectsDB.py` is called through the `/create_project` route in `app.py` to create new projects.
-   - `addUser` function in `projectsDB.py` adds users to projects, updating the project's user list.
-   - `checkOutHW` and `checkInHW` functions in `projectsDB.py` handle hardware check-out and check-in for projects, respectively, interacting with `hardwareDB.py` to update hardware availability.
+```powershell
+python -m pip install -r server/requirements-dev.txt
+python -m grpc_tools.protoc -I server --python_out=server --grpc_python_out=server server/hardware/hardware.proto
+```
 
-3. **Hardware Management (`hardwareDB.py`):**
-   - `createHardwareSet` function in `hardwareDB.py` is used to create new hardware sets through the `/create_hardware_set` route in `app.py`.
-   - `requestSpace` function in `hardwareDB.py` handles requests for hardware availability when users check out or check in hardware through the `/check_out` and `/check_in` routes in `app.py`.
-   - `getAllHwNames` and `queryHardwareSet` functions in `hardwareDB.py` provide hardware set information to various routes in `app.py`.
+## Verification
 
-4. **Main Application (`app.py`):**
-   - Defines routes that handle HTTP requests and interact with `usersDB.py`, `projectsDB.py`, and `hardwareDB.py` to perform various operations.
-   - Routes call appropriate functions from the respective database modules to manage users, projects, and hardware sets.
+```powershell
+python -m unittest discover -s server/tests
+npm run build --prefix client
+npm run lint --prefix client
+```
 
-## Client side
-
-1. Design choices are up to you, but an example directory structure has been provided. 
+Backend tests use an in-process gRPC server and mocked Projects REST responses;
+they do not create live projects or reservations.
 
 ## Heroku deployment
 
-Use this repo as one Heroku app that serves both the Flask API and the built React frontend.
-
-1. Create a Heroku app and add two buildpacks in this order: Node.js first, Python second.
-2. Set the required config vars in Heroku: `MONGO_URI` and `JWT_SECRET_KEY`.
-3. Deploy from the repository root. The root `heroku-postbuild` script builds the React app in `client/`, and the Flask app serves the generated `client/dist` files.
-4. Start the app with the included `Procfile`, which runs `gunicorn server.app:app`.
-5. After deployment, open the app URL and verify the API with `/api/health/db`.
-
-For local development, keep using `npm run dev` at the repo root. The frontend still works against same-origin `/api` routes, and Vite continues to proxy to the local Flask server during development.
-
-## Local environment
-
-Copy `.env.example` to `.env` and set `HARDWARE_API_KEY` to the key supplied by
-the hardware service team. Hardware requests are proxied by Flask so the key
-never reaches the browser; each write includes a new `Idempotency-Key`.
-`MONGO_URI` can remain empty while testing hardware, but users and projects
-remain unavailable until MongoDB is configured.
+Use Node.js then Python buildpacks. Configure the same server environment variables
+as local development, and leave `VITE_API_BASE_URL` empty. The root
+`heroku-postbuild` script builds React; the included `Procfile` starts
+`gunicorn server.app:app`, which serves Flask and `client/dist` together.
+`/api/health/db` checks the MongoDB connection.

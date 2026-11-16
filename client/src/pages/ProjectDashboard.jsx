@@ -137,6 +137,13 @@ function AgencyProjects({ agency }) {
                     </h2>
                     <p>{agencyNames[project.orgId]}</p>
                   </div>
+                  <Link
+                    className="workspace-button secondary workspace-project-equipment"
+                    to={projectPath(project, "/resources")}
+                    aria-label={`Manage equipment for ${project.projectName}`}
+                  >
+                    Manage equipment
+                  </Link>
                   <span className="workspace-card-arrow" aria-hidden="true">
                     ↗
                   </span>
@@ -145,8 +152,7 @@ function AgencyProjects({ agency }) {
             </ul>
           )}
           <p className="workspace-data-note">
-            Showing agency projects. Membership is checked when you open a
-            project.
+            Showing projects for your agency.
           </p>
         </>
       )}

@@ -21,6 +21,11 @@ export function handleMockRequest(service, method, path, body, token) {
   if (!routes) return err(500, `Unknown mock service: ${service}`);
 
   const cleanPath = path.split("?")[0];
+  if (
+    service === "hardware" && method === "POST" &&
+    (cleanPath === "/api/hardware" || cleanPath === "/api/listAllocations") &&
+    getProjectFixture() === "hardware-unavailable"
+  ) return err(503, "Sample equipment outage");
   if (service === "projects") {
     const fixture = getProjectFixture();
     const isList =

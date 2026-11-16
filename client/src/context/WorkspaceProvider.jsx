@@ -7,7 +7,7 @@ async function loadProfile() {
   // Do not use the legacy dev-user fallback as identity or agency evidence.
   const res = await users.me();
   if (!res.ok) throw new Error("Profile unavailable");
-  const profile = await res.json();
+  const { user: profile } = await res.json();
   const id = profile.id ?? profile.user_id;
   if (!isIdentifier(id)) throw new Error("Missing user ID");
   const agency = profile.agencyCode ?? profile.agency_code;

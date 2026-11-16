@@ -52,6 +52,13 @@
   border-radius: 4px;
 }
 
+.login-box select {
+  box-sizing: content-box;
+  background-color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
 .login-box button {
   width: 100%;
   margin-top: 1.5rem;

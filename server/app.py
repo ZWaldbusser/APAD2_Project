@@ -1,5 +1,4 @@
-# Main Flask entrypoint. Defines API routes and delegates database
-# operations to the appropriate database module.
+# Flask entry point for the Users, Projects, and Hardware API adapters.
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -10,13 +9,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import db
-import usersDatabase as users_db
-import projectsDatabase as projects_db
+from services import projects as projects_api
+from routes.projects import create_blueprint as create_projects_blueprint
 import hardwareDatabase as hardware_db
+from hardware.client import HardwareServiceError
+from routes.users import create_blueprint as create_users_blueprint
+from users.client import UsersServiceError, validate_access_token
 
-import jwt
-import datetime
 from functools import wraps
 
 app = Flask(__name__)
@@ -26,14 +25,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DIST = os.path.abspath(os.path.join(BASE_DIR, "..", "client", "dist"))
 CLIENT_BUILD_EXISTS = os.path.isdir(CLIENT_DIST)
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError("JWT_SECRET_KEY is not set in .env")
-
-
 @app.errorhandler(RuntimeError)
 def handle_runtime_error(error):
     return jsonify({"error": str(error)}), 503
+
+
+@app.errorhandler(projects_api.ProjectsServiceError)
+@app.errorhandler(HardwareServiceError)
+@app.errorhandler(UsersServiceError)
+def handle_upstream_service_error(error):
+    return jsonify({"error": str(error)}), error.status_code
 
 
 def token_required(f):
@@ -43,13 +44,14 @@ def token_required(f):
         token = auth_header.replace("Bearer ", "") if auth_header else None
         if not token:
             return jsonify({"error": "Missing token"}), 401
+
+        # Access tokens from the Users service (2FA login), checked by its gRPC API.
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            request.user_id = payload["user_id"]
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
+            request.user_id, request.agency_code = validate_access_token(token)
+        except UsersServiceError as error:
+            if error.status_code == 401:
+                return jsonify({"error": "Invalid or expired token"}), 401
+            raise  # service unavailable etc. -> handled as 503, never allowed through
         return f(*args, **kwargs)
     return decorated
 
@@ -77,159 +79,21 @@ def serve_react_app(path):
     return jsonify({"error": "Not found"}), 404
 
 
-@app.route("/api/health/db", methods=["GET"])
-def db_health():
-    """Quick way to confirm the server can actually reach MongoDB."""
-    try:
-        db.ping()
-        return jsonify({"database": "connected", "db_name": db.db.name}), 200
-    except Exception as e:
-        return jsonify({"database": "unreachable", "error": str(e)}), 503
-
-
-# user routes (signup, login, fetch users)
-
-@app.route("/api/signup", methods=["POST"])
-def signup():
-    data = request.get_json()
-
-    if not data or "userID" not in data or "password" not in data:
-        return jsonify({"error": "userid and password are required"}), 400
-
-    new_id = users_db.create_user(data["userID"], data["password"])
-
-    if new_id is None:
-        return jsonify({"error": "userid already exists"}), 409
-
-    return jsonify({"message": "User created", "id": new_id}), 201
-
-
-@app.route("/api/login", methods=["POST"])
-def login():
-    data = request.get_json()
-    if not data or "userid" not in data or "password" not in data:
-        return jsonify({"error": "userid and password are required"}), 400
-
-    user_id = users_db.verify_login(data["userid"], data["password"])
-
-    if not user_id:
-        return jsonify({"error": "Invalid userid or password"}), 401
-
-    token = jwt.encode(
-        {
-            "user_id": user_id,
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24),
-        },
-        SECRET_KEY,
-        algorithm="HS256",
-    )
-    return jsonify({"message": "Login successful", "token": token}), 200
-
-@app.route("/api/me", methods=["GET"])
-@token_required
-def get_me():
-    user = users_db.find_user_by_id(request.user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    return jsonify({
-        "id": str(user["_id"]),
-        "userid": user["userid"]
-    }), 200
-
-@app.route("/api/forgot_password", methods=["POST"])
-def change_password():
-    data = request.get_json()
-
-    if not data or "userID" not in data or "password" not in data or "confirmPassword" not in data:
-        return jsonify({"error": "userid and new password are required"}), 400
-
-    if not data["password"] == data["confirmPassword"]:
-        return jsonify({"error": "Passwords must match"}), 400
-
-    success = users_db.forgot_password(data["userID"], data["password"])
-
-    if not success:
-        return jsonify({"error": "Invalid userid or password"}), 401
-
-    return jsonify({"message": "Password  successfully changed"}), 200
-
-
-@app.route("/api/users", methods=["GET"])
-def get_users():
-    return jsonify(users_db.get_all_users()), 200
-
-
-# Project routes (create project, get project, list projects)
-
-@app.route("/api/projects", methods=["POST"])
-@token_required
-def create_project():
-    data = request.get_json()
-    required_fields = ["name", "description", "projectID"]
-
-    if not data or not all(field in data for field in required_fields):
-        return jsonify({"error": "name, description, and projectID are required"}), 400
-
-    created = projects_db.createProject(
-        data["name"], data["projectID"], data["description"]
-    )
-
-    if not created:
-        return jsonify({"error": "projectID already exists"}), 409
-
-    projects_db.addUser(data["projectID"], request.user_id)
-
-    return jsonify({"message": "Project created", "projectID": data["projectID"]}), 201
-
-
-@app.route("/api/projects/<project_id>", methods=["GET"])
-def get_project(project_id):
-    project = projects_db.queryProject(project_id)
-
-    if not project:
-        return jsonify({"error": "Project not found"}), 404
-
-    return jsonify({
-        "id": str(project["_id"]),
-        "name": project["projectName"],
-        "description": project["description"],
-        "projectID": project["projectId"],
-        "users": project.get("users", []),
-        "hwSets": project.get("hwSets", {})
-    }), 200
-
-
-@app.route("/api/projects", methods=["GET"])
-@token_required
-def get_projects():
-    projects = []
-    for project in db.db["projects"].find({"users": request.user_id}):
-        projects.append({
-            "id": str(project["_id"]),
-            "name": project.get("projectName"),
-            "description": project.get("description"),
-            "projectID": project.get("projectId"),
-            "users": project.get("users", [])
-        })
-    return jsonify(projects), 200
-
-@app.route("/api/projects/<project_id>/join", methods=["POST"])
-@token_required
-def join_project(project_id):
-    result = projects_db.addUser(project_id, request.user_id)
-    if result == "not_found":
-        return jsonify({"error": "Project not found"}), 404
-    if result == "already_member":
-        return jsonify({"error": "You are already a member of this project"}), 409
-    return jsonify({"message": "Joined project"}), 200
+app.register_blueprint(create_users_blueprint(), url_prefix="/api/users-service")
+app.register_blueprint(create_projects_blueprint(token_required), url_prefix="/api/projects-service")
 
 
 # Hardware routes (view hardware, checkout, check-in)
 
-@app.route("/api/hardware", methods=["GET"])
+@app.route("/api/hardware", methods=["POST"])
 def get_hardware():
     try:
-        return jsonify(hardware_db.get_all_hardware(params=request.args)), 200
+        data = request.get_json(silent=True)
+        if data is None:
+            data = {}
+        if not isinstance(data, dict):
+            return jsonify({"error": "Hardware list request body must be an object"}), 400
+        return jsonify(hardware_db.get_all_hardware(params=data)), 200
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 503
 
@@ -244,7 +108,7 @@ def checkout_hardware():
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    if not projects_db.queryProject(data["projectId"]):
+    if not projects_api.query_project(data["projectId"], data.get("orgId")):
         return jsonify({"error": "Project not found"}), 404
 
     success, message = hardware_db.checkout_hardware(
@@ -268,7 +132,7 @@ def checkin_hardware():
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    project = projects_db.queryProject(data["projectId"])
+    project = projects_api.query_project(data["projectId"], data.get("orgId"))
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
@@ -283,17 +147,20 @@ def checkin_hardware():
     return jsonify({"message": message}), 200
 
 
-@app.route("/api/allocations", methods=["GET"])
+@app.route("/api/listAllocations", methods=["POST"])
 @token_required
 def get_allocations():
     try:
-        status, payload = hardware_db.get_allocations(params=request.args)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Allocation list request body is required"}), 400
+        status, payload = hardware_db.get_allocations(params=data)
         return jsonify(payload), status
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 503
 
 
-@app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["PUT"])
+@app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["POST"])
 @token_required
 def set_allocation(hardware_id, project_id):
     data = request.get_json(silent=True)
@@ -305,7 +172,7 @@ def set_allocation(hardware_id, project_id):
         return jsonify({"error": "expected_version must be an integer between 1 and 1000000"}), 400
     if not isinstance(data.get("reason"), str) or not 3 <= len(data["reason"]) <= 1000:
         return jsonify({"error": "reason must be between 3 and 1000 characters"}), 400
-    if not projects_db.queryProject(project_id):
+    if not projects_api.query_project(project_id, data.get("orgId")):
         return jsonify({"error": "Project not found"}), 404
     status, payload = hardware_db.set_allocation(hardware_id, project_id, {
         "expected_version": data["expected_version"],
@@ -316,14 +183,6 @@ def set_allocation(hardware_id, project_id):
 
 
 if __name__ == "__main__":
-    # Fail loudly at startup if the database is unreachable, instead of
-    # letting every request hang or 500 later.
-    try:
-        db.ping()
-        print(f"[OK] Connected to MongoDB database: {db.db.name}")
-    except Exception as e:
-        print(f"[ERROR] Could not connect to MongoDB: {e}")
-
     app.run(
         debug=os.getenv("FLASK_DEBUG") == "1",
         host="0.0.0.0",

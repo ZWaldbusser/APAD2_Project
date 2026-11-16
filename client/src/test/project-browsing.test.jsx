@@ -23,6 +23,8 @@ const detail = {
   joined_users: ["u1"],
   hardwareList: [],
 };
+const catalog = [{ id: "HW-live", name: "Laptops", version: 1, capacity: 100, available: 82 }];
+const allocations = [{ hardware_id: "HW-live", project_id: "P1 / north", quantity: 26, out: 18 }];
 const response = (data, status = 200) =>
   new Response(JSON.stringify(data), { status });
 
@@ -31,15 +33,45 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/projects");
   request.mockReset();
   request.mockImplementation(async (service, path) => {
-    if (service === "users") return response(profile);
+    if (service === "users") return response({ user: profile });
+    if (service === "hardware") return response(path === "/api/hardware" ? catalog : allocations);
     if (path === "/projects/search_project")
       return response({ projectList: summaries });
     return response({ projectInfo: detail });
   });
 });
 
+test("opens equipment directly from the project row with both identifiers and the current Hardware client", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole('link', { name: detail.projectName });
+  const equipment = screen.getByRole('link', { name: 'Manage equipment for Library network refresh' });
+  expect(equipment).toHaveAttribute('href', '/projects/P1%20%2F%20north/resources?orgId=AUS');
+  await user.click(equipment);
+  expect(await screen.findByRole('heading', { name: 'Project P1 / north' })).toBeInTheDocument();
+  expect(await screen.findByRole('cell', { name: 'Laptops' })).toBeInTheDocument();
+  expect(window.location.search).toBe('?orgId=AUS');
+  expect(request).toHaveBeenCalledWith('hardware', '/api/listAllocations', { method: 'POST', body: { page: 1, size: 100, projectId: 'P1 / north' } });
+});
+
+
+test("project details read current Hardware allocations instead of embedded creation metadata", async () => {
+  window.history.replaceState({}, '', '/projects/P1%20%2F%20north?orgId=AUS');
+  request.mockImplementation(async (service, path) => {
+    if (service === 'users') return response({ user: profile });
+    if (service === 'hardware') return response(path === '/api/hardware' ? catalog : allocations);
+    return response({ projectInfo: { ...detail, hardwareList: [{ hardwareId: 'stale-hardware', allocation: 999 }] } });
+  });
+  render(<App />);
+  const table = await screen.findByRole('table', { name: 'Equipment allocated to Library network refresh' });
+  expect(within(table).getByRole('cell', { name: 'HW-live' })).toBeInTheDocument();
+  expect(within(table).getByRole('cell', { name: '26' })).toBeInTheDocument();
+  expect(screen.queryByText('stale-hardware')).not.toBeInTheDocument();
+  expect(request).toHaveBeenCalledWith('hardware', '/api/listAllocations', { method: 'POST', body: { page: 1, size: 100, projectId: 'P1 / north' } });
+});
+
 test("does not request projects or invent an agency when the profile has none", async () => {
-  request.mockResolvedValue(response({ id: "u1", userid: "demo" }));
+  request.mockResolvedValue(response({ user: { id: "u1", userid: "demo" } }));
   render(<App />);
   expect(
     await screen.findByRole("heading", { name: "Agency unavailable" }),
@@ -54,7 +86,7 @@ test("shows loading, reports a service failure, and recovers with the saved sear
   let finish;
   request.mockImplementation(async (service) =>
     service === "users"
-      ? response(profile)
+      ? response({ user: profile })
       : new Promise((resolve) => {
           finish = resolve;
         }),
@@ -92,7 +124,7 @@ test("distinguishes an empty agency from a search with no matches", async () => 
   // Return to this agency after its last project is removed by the provider.
   request.mockImplementation(async (service, path) =>
     service === "users"
-      ? response(profile)
+      ? response({ user: profile })
       : path === "/projects/search_project"
         ? response({ projectList: [] })
         : response({}, 404),
@@ -159,7 +191,7 @@ test.each([
     window.history.replaceState({}, "", "/projects/P1%20%2F%20north?orgId=AUS");
     request.mockImplementation(async (service) =>
       service === "users"
-        ? response(profile)
+        ? response({ user: profile })
         : response({ projectInfo: project }, status),
     );
     render(<App />);
@@ -197,7 +229,7 @@ test("legacy bare deep links use the known account agency and canonical numeric 
   window.history.replaceState({}, "", "/projects/P2");
   request.mockImplementation(async (service) =>
     service === "users"
-      ? response({ user_id: 7, username: "staff", agency_code: "DAL" })
+      ? response({ user: { id: 7, username: "staff", agencyCode: "DAL" } })
       : response({
           projectInfo: {
             orgId: "DAL",
@@ -223,7 +255,8 @@ test("legacy bare deep links use the known account agency and canonical numeric 
 test("discards out-of-agency summaries and never opens a mismatched detail", async () => {
   const user = userEvent.setup();
   request.mockImplementation(async (service, path) => {
-    if (service === "users") return response(profile);
+    if (service === "users") return response({ user: profile });
+    if (service === "hardware") return response(path === "/api/hardware" ? catalog : allocations);
     if (path === "/projects/search_project")
       return response({
         projectList: [
@@ -253,7 +286,7 @@ test("shows the full provider budget including cents", async () => {
   window.history.replaceState({}, "", "/projects/P1%20%2F%20north?orgId=AUS");
   request.mockImplementation(async (service) =>
     service === "users"
-      ? response(profile)
+      ? response({ user: profile })
       : response({ projectInfo: { ...detail, budget: 1250.75 } }),
   );
   render(<App />);
@@ -264,7 +297,7 @@ test("reports malformed detail data as unavailable instead of crashing the works
   window.history.replaceState({}, "", "/projects/P1%20%2F%20north?orgId=AUS");
   request.mockImplementation(async (service) =>
     service === "users"
-      ? response(profile)
+      ? response({ user: profile })
       : response({
           projectInfo: { ...detail, projectDesc: { unexpected: true } },
         }),
@@ -273,4 +306,36 @@ test("reports malformed detail data as unavailable instead of crashing the works
   expect(
     await screen.findByRole("heading", { name: "Project unavailable" }),
   ).toBeInTheDocument();
+});
+
+test('an independent Hardware outage leaves project details visible and retries only equipment', async () => {
+  const user = userEvent.setup();
+  window.history.replaceState({}, '', '/projects/P1%20%2F%20north?orgId=AUS');
+  let offline = true;
+  request.mockImplementation(async (service, path) => {
+    if (service === 'users') return response({ user: profile });
+    if (service === 'hardware') return offline ? response({ error: 'Offline' }, 503) : response(path === '/api/hardware' ? catalog : allocations);
+    return response({ projectInfo: detail });
+  });
+  render(<App />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Equipment unavailable');
+  expect(screen.getByText(detail.projectDesc)).toBeInTheDocument();
+  expect(screen.queryByText('No equipment allocated yet.')).not.toBeInTheDocument();
+  const projectReads = request.mock.calls.filter(([service]) => service === 'projects').length;
+  offline = false;
+  await user.click(screen.getByRole('button', { name: 'Retry equipment' }));
+  expect(await screen.findByRole('cell', { name: 'HW-live' })).toBeInTheDocument();
+  expect(request.mock.calls.filter(([service]) => service === 'projects')).toHaveLength(projectReads);
+});
+
+test('obsolete embedded equipment metadata cannot hide valid project and current Hardware details', async () => {
+  window.history.replaceState({}, '', '/projects/P1%20%2F%20north?orgId=AUS');
+  request.mockImplementation(async (service, path) => {
+    if (service === 'users') return response({ user: profile });
+    if (service === 'hardware') return response(path === '/api/hardware' ? catalog : allocations);
+    return response({ projectInfo: { ...detail, hardwareList: [{ legacy: true }] } });
+  });
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: detail.projectName })).toBeInTheDocument();
+  expect(await screen.findByRole('cell', { name: 'HW-live' })).toBeInTheDocument();
 });

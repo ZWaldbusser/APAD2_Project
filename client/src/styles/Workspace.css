@@ -392,6 +392,10 @@
   color: var(--workspace-muted);
   font-size: 0.8rem;
 }
+.workspace-project-equipment {
+  flex-shrink: 0;
+  margin-left: auto;
+}
 .workspace-card-arrow {
   color: var(--brand-orange);
   font-size: 1.25rem;
@@ -714,12 +718,19 @@
     padding-bottom: 0;
   }
   .workspace-project-card {
+    flex-wrap: wrap;
     gap: 12px;
     padding: 20px 16px;
   }
   .workspace-project-icon {
     flex-basis: 40px;
     height: 44px;
+  }
+  .workspace-project-summary {
+    flex-basis: calc(100% - 52px);
+  }
+  .workspace-project-equipment {
+    margin-left: 52px;
   }
   .workspace-project-summary h2 {
     font-size: 1rem;

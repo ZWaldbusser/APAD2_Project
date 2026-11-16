@@ -38,8 +38,8 @@ export const db = {
     },
   ],
   hardware: [
-    { id: "h1", name: "HWSet1", capacity: 100, available: 80 },
-    { id: "h2", name: "HWSet2", capacity: 100, available: 100 },
+    { id: "HW001", name: "HWSet1", capacity: 100, available: 80 },
+    { id: "HW002", name: "HWSet2", capacity: 100, available: 100 },
   ],
 };
 

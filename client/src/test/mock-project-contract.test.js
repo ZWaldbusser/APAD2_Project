@@ -62,3 +62,12 @@ test("local review fixtures distinguish unavailable service from missing detail"
     ).status,
   ).toBe(404);
 });
+
+test('the equipment outage fixture leaves Projects available and does not simulate Hardware writes', () => {
+  sessionStorage.setItem('haas-project-fixture', 'hardware-unavailable');
+  expect(handleMockRequest('hardware', 'POST', '/api/listAllocations', { projectId: 'P1' }, 'mock-token.u1').status).toBe(503);
+  expect(handleMockRequest('hardware', 'POST', '/api/hardware', {}, 'mock-token.u1').status).toBe(503);
+  expect(handleMockRequest('projects', 'GET', '/projects/P1?orgId=AUS', undefined, 'mock-token.u1').status).toBe(200);
+  // Writes continue to use their existing handler and validation.
+  expect(handleMockRequest('hardware', 'POST', '/api/hardware/checkout', {}, 'mock-token.u1').status).toBe(400);
+});

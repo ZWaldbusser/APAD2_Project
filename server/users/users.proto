@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package users.v1;
+
+// Users service for backend callers. Every method mirrors an existing HTTP
+// route and applies the same rules. Tokens are passed as request fields
+// (never with a "Bearer " prefix):
+//   mfa_token    - from Login; used only for the three two-factor steps
+//   access_token - from EnableTwoFactor or VerifyTwoFactor; used for everything else
+service UsersService {
+  // Backend token check used by other services (unchanged).
+  rpc ValidateAccessToken(ValidateAccessTokenRequest)
+      returns (ValidateAccessTokenResponse);
+
+  // Account and login flow (same as /users/* over HTTP).
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc SetupTwoFactor(SetupTwoFactorRequest) returns (SetupTwoFactorResponse);
+  rpc EnableTwoFactor(TwoFactorCodeRequest) returns (AuthResponse);
+  rpc VerifyTwoFactor(TwoFactorCodeRequest) returns (AuthResponse);
+  rpc GetProfile(AccessTokenRequest) returns (ProfileResponse);
+
+  // Personal watchlist (same as /watchlist over HTTP).
+  rpc ListWatchlist(AccessTokenRequest) returns (ListWatchlistResponse);
+  rpc AddToWatchlist(WatchlistVendorRequest) returns (AddToWatchlistResponse);
+  rpc RemoveFromWatchlist(WatchlistVendorRequest) returns (RemoveFromWatchlistResponse);
+}
+
+message ValidateAccessTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateAccessTokenResponse {
+  string user_id = 1;
+  string agency_code = 2;
+}
+
+// Safe account fields only: never passwords, hashes, or MFA secrets.
+message User {
+  string id = 1;
+  string username = 2;
+  string agency_code = 3;          // AUS, DAL, or TEX
+  string agency_name = 4;
+  bool two_factor_enabled = 5;
+  string created_at = 6;           // ISO 8601 UTC
+}
+
+message RegisterRequest {
+  string agency_code = 1;
+  string username = 2;
+  string password = 3;
+}
+message RegisterResponse {
+  User user = 1;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+message LoginResponse {
+  string mfa_token = 1;
+  string next_step = 2;            // "2fa_setup" (first login) or "2fa_verify"
+}
+
+message SetupTwoFactorRequest {
+  string mfa_token = 1;
+}
+message SetupTwoFactorResponse {
+  string secret = 1;
+  string otpauth_url = 2;
+  string qr_code_data_url = 3;     // data:image/png;base64,... to show as an image
+}
+
+message TwoFactorCodeRequest {
+  string mfa_token = 1;
+  string code = 2;                 // six digits as a string (keeps leading zeros)
+}
+message AuthResponse {
+  string access_token = 1;
+  User user = 2;
+}
+
+message AccessTokenRequest {
+  string access_token = 1;
+}
+message ProfileResponse {
+  User user = 1;
+}
+
+message WatchlistItem {
+  string vendor_id = 1;            // from VendorDataService; preserve exactly
+  string agency_code = 2;
+  string vendor_name = 3;
+  string added_at = 4;             // ISO 8601 UTC
+}
+message ListWatchlistResponse {
+  string agency_code = 1;
+  int32 count = 2;
+  repeated WatchlistItem items = 3; // newest first
+}
+message WatchlistVendorRequest {
+  string access_token = 1;
+  string vendor_id = 2;
+}
+message AddToWatchlistResponse {
+  WatchlistItem item = 1;
+  bool created = 2;                // false when it was already saved
+}
+message RemoveFromWatchlistResponse {}

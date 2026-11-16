@@ -14,9 +14,9 @@ import {
   hasDisplayableDetails,
   isIdentifier,
   isProjectSummary,
-  projectPath,
 } from "../projectContext";
 import WorkspaceState from "../components/WorkspaceState";
+import ProjectEquipment from "../components/ProjectEquipment";
 import Swal from "sweetalert2";
 
 function ProjectRecord({ orgId, projectId, profile, back }) {
@@ -215,51 +215,7 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
             ))}
           </ul>
         </section>
-        <section className="workspace-panel workspace-equipment">
-          <div className="workspace-section-heading">
-            <div>
-              <h2>Equipment allocations</h2>
-              <p className="workspace-muted">
-                Resources assigned to this project.
-              </p>
-            </div>
-            <Link
-              className="workspace-button secondary"
-              to={projectPath(project, "/resources")}
-            >
-              Manage equipment
-            </Link>
-          </div>
-          {Array.isArray(project.hardwareList) ? (
-            project.hardwareList.length ? (
-              <div className="workspace-table-wrap">
-                <table>
-                  <caption className="workspace-sr-only">
-                    Equipment allocated to {project.projectName}
-                  </caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Hardware ID</th>
-                      <th scope="col">Allocated units</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {project.hardwareList.map((hw) => (
-                      <tr key={hw.hardwareId}>
-                        <td>{hw.hardwareId}</td>
-                        <td>{hw.allocation}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p>No equipment allocated yet.</p>
-            )
-          ) : (
-            <p>Equipment information unavailable.</p>
-          )}
-        </section>
+        <ProjectEquipment project={project} />
       </div>
       <div className="workspace-detail-footer">
         <Link to={back} className="workspace-text-link">

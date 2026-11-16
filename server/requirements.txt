@@ -8,3 +8,5 @@ argon2-cffi
 certifi
 gunicorn
 requests
+grpcio>=1.85.1,<2
+protobuf>=7.35.1,<8

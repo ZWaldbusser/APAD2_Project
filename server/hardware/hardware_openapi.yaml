@@ -1,0 +1,1806 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Hardware Management API",
+    "version": "v1",
+    "description": "Hardware management service contract (gRPC), exposed here in gRPC-over-HTTP form: every RPC is POST /hardware.v1.<Service>/<Method> with the request message as the JSON body. int64 values are JSON strings.\n\n**Conventions**\n- Every mutating RPC takes a caller-chosen unique `requestId` (or the `idempotency-key` header; if both are sent they must match). Repeating a requestId with the same fields returns the original response and changes nothing; with different fields it fails with ALREADY_EXISTS.\n- Authenticate with the `authorization` header: `Basic base64(team:code)` for service teams, or `Bearer <token>` from AuthService.Login for the website.\n- Scalar request fields are optional where zero/false is a meaningful value. A missing required field fails with INVALID_ARGUMENT.\n\n**Status codes**\n- UNAUTHENTICATED: missing or wrong credentials\n- PERMISSION_DENIED: the caller's team may not call this RPC\n- INVALID_ARGUMENT: a field is missing or invalid\n- NOT_FOUND: unknown hardware id or checkout id\n- FAILED_PRECONDITION: a stock rule would be broken (e.g. not enough reserved stock)\n- ABORTED: stale expectedVersion, or a concurrent change; refresh and retry\n- ALREADY_EXISTS: duplicate asset tag, or requestId reused with different fields\n- RESOURCE_EXHAUSTED: too many failed sign-in attempts; wait five minutes\n- UNAVAILABLE: storage temporarily unavailable; resend the same requestId"
+  },
+  "tags": [
+    {
+      "name": "HardwareService"
+    },
+    {
+      "name": "AuthService"
+    },
+    {
+      "name": "OpsService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "basicAuth": {
+      "type": "basic",
+      "description": "Basic base64(team:code) for service teams."
+    },
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Enter: Bearer <token> (from AuthService.Login)."
+    }
+  },
+  "paths": {
+    "/hardware.v1.HardwareService/CreateHardware": {
+      "post": {
+        "operationId": "HardwareService_CreateHardware",
+        "summary": "CreateHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateHardwareRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Hardware"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Admin only.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/ListHardware": {
+      "post": {
+        "operationId": "HardwareService_ListHardware",
+        "summary": "ListHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListHardwareRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListHardwareResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/GetHardware": {
+      "post": {
+        "operationId": "HardwareService_GetHardware",
+        "summary": "GetHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetHardwareRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Hardware"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/GetAvailability": {
+      "post": {
+        "operationId": "HardwareService_GetAvailability",
+        "summary": "GetAvailability",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetHardwareRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AvailabilityResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/UpdateHardware": {
+      "post": {
+        "operationId": "HardwareService_UpdateHardware",
+        "summary": "UpdateHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateHardwareRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Hardware"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Admin only.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/RetireHardware": {
+      "post": {
+        "operationId": "HardwareService_RetireHardware",
+        "summary": "RetireHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RetireHardwareRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Hardware"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Admin only.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/AdjustHardware": {
+      "post": {
+        "operationId": "HardwareService_AdjustHardware",
+        "summary": "AdjustHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AdjustHardwareRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Hardware"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Admin only.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/AllocateHardware": {
+      "post": {
+        "operationId": "HardwareService_AllocateHardware",
+        "summary": "AllocateHardware",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AllocateHardwareRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Hardware"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Sets (does not add to) the quantity reserved for a project. Returns the hardware pool.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/ListAllocations": {
+      "post": {
+        "operationId": "HardwareService_ListAllocations",
+        "summary": "ListAllocations",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListAllocationsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListAllocationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/CreateCheckout": {
+      "post": {
+        "operationId": "HardwareService_CreateCheckout",
+        "summary": "CreateCheckout",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateCheckoutRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Checkout"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Returns the new checkout (not the hardware pool).",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/ListCheckouts": {
+      "post": {
+        "operationId": "HardwareService_ListCheckouts",
+        "summary": "ListCheckouts",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListCheckoutsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListCheckoutsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/ReturnCheckout": {
+      "post": {
+        "operationId": "HardwareService_ReturnCheckout",
+        "summary": "ReturnCheckout",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ReturnCheckoutRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Checkout"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Adds `quantity` to the checkout's returned total. Returns the checkout.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/CorrectCheckout": {
+      "post": {
+        "operationId": "HardwareService_CorrectCheckout",
+        "summary": "CorrectCheckout",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CorrectCheckoutRequest"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Alternative to requestId in the body; if both are sent they must match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/Checkout"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Admin only. Sets the checkout's returned total to an exact value. Returns the checkout.",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/ListTransactions": {
+      "post": {
+        "operationId": "HardwareService_ListTransactions",
+        "summary": "ListTransactions",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListTransactionsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListTransactionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.HardwareService/GetSummary": {
+      "post": {
+        "operationId": "HardwareService_GetSummary",
+        "summary": "GetSummary",
+        "tags": [
+          "HardwareService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetSummaryRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SummaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.AuthService/GetAuthMethods": {
+      "post": {
+        "operationId": "AuthService_GetAuthMethods",
+        "summary": "GetAuthMethods",
+        "tags": [
+          "AuthService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetAuthMethodsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AuthMethodsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Public.",
+        "security": []
+      }
+    },
+    "/hardware.v1.AuthService/Login": {
+      "post": {
+        "operationId": "AuthService_Login",
+        "summary": "Login",
+        "tags": [
+          "AuthService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LoginRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/LoginResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Public. Website sign-in with a team name and code (only teams allowed to sign in to the website).",
+        "security": []
+      }
+    },
+    "/hardware.v1.AuthService/DevLogin": {
+      "post": {
+        "operationId": "AuthService_DevLogin",
+        "summary": "DevLogin",
+        "tags": [
+          "AuthService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DevLoginRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/LoginResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Public. Local development sign-in; not available in production.",
+        "security": []
+      }
+    },
+    "/hardware.v1.AuthService/Logout": {
+      "post": {
+        "operationId": "AuthService_Logout",
+        "summary": "Logout",
+        "tags": [
+          "AuthService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LogoutRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/LogoutResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Bearer token only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.AuthService/Me": {
+      "post": {
+        "operationId": "AuthService_Me",
+        "summary": "Me",
+        "tags": [
+          "AuthService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/MeRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/MeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Bearer token only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/hardware.v1.OpsService/Ready": {
+      "post": {
+        "operationId": "OpsService_Ready",
+        "summary": "Ready",
+        "tags": [
+          "OpsService"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ReadyRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ReadyResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response (see status codes in API description).",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "description": "Public. Fails with UNAVAILABLE unless the database is a transactional replica set.",
+        "security": []
+      }
+    }
+  },
+  "definitions": {
+    "Hardware": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "assetTag": {
+          "type": "string"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "description": "active | damaged | under_maintenance | retired"
+        },
+        "total": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units owned, including units checked out."
+        },
+        "reserved": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units allocated to projects (checked out or not)."
+        },
+        "out": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units checked out right now. NOT 'out of stock'."
+        },
+        "version": {
+          "type": "string",
+          "format": "int64",
+          "description": "Increases by 1 on every change to this pool. Send it back as expectedVersion."
+        },
+        "available": {
+          "type": "string",
+          "format": "int64",
+          "description": "total - out: units not currently checked out (may be reserved by other projects)."
+        },
+        "unallocated": {
+          "type": "string",
+          "format": "int64",
+          "description": "total - reserved: units that can still be allocated to a project."
+        }
+      },
+      "description": "A pool of identical units. Invariant: 0 <= out <= reserved <= total."
+    },
+    "Allocation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "'<hardware_id>:<project_id>'"
+        },
+        "hardwareId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units reserved for the project."
+        },
+        "out": {
+          "type": "string",
+          "format": "int64",
+          "description": "Of those, units checked out right now. The project can still check out quantity - out."
+        },
+        "version": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "description": "One project's share of one hardware pool."
+    },
+    "Checkout": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "hardwareId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units lent in this checkout. Never changes."
+        },
+        "returned": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units given back so far (running total)."
+        },
+        "version": {
+          "type": "string",
+          "format": "int64"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "outstanding": {
+          "type": "string",
+          "format": "int64",
+          "description": "quantity - returned."
+        }
+      }
+    },
+    "AuditEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string",
+          "description": "team:<name> for service callers."
+        },
+        "operation": {
+          "type": "string",
+          "description": "create | edit | retire | adjust | allocate | checkout | return | correct"
+        },
+        "entity": {
+          "type": "string",
+          "description": "Checkout id for checkout/return/correct, hardware id otherwise."
+        },
+        "hardwareId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "before": {
+          "type": "object",
+          "description": "Snapshot of the stored records before the change."
+        },
+        "after": {
+          "type": "object",
+          "description": "Snapshot of the stored records after the change."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "A hash of the caller and the request number, not the request number itself."
+        }
+      }
+    },
+    "CreateHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "assetTag": {
+          "type": "string"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "total": {
+          "type": "string",
+          "format": "int64"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "ListHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "q": {
+          "type": "string",
+          "description": "Case-insensitive name or asset-tag prefix."
+        },
+        "status": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "string",
+          "description": "name_key (default) | asset_key | status | total"
+        },
+        "direction": {
+          "type": "string",
+          "description": "asc (default) | desc"
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ListHardwareResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Hardware"
+          }
+        },
+        "total": {
+          "type": "string",
+          "format": "int64",
+          "description": "Matching records across all pages (not the stock total inside each item)."
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "GetHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "hardwareId": {
+          "type": "string"
+        }
+      }
+    },
+    "VendorAlternative": {
+      "type": "object",
+      "properties": {
+        "sourceUnit": {
+          "type": "string"
+        },
+        "vendor": {
+          "type": "string"
+        },
+        "commodity": {
+          "type": "string"
+        },
+        "department": {
+          "type": "string"
+        },
+        "businessLine": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "number",
+          "format": "double",
+          "description": "Procurement spend, not stock."
+        },
+        "unitPrice": {
+          "type": "number",
+          "format": "double"
+        },
+        "paymentAmount": {
+          "type": "number",
+          "format": "double"
+        },
+        "monthlyCharges": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "AvailabilityResponse": {
+      "type": "object",
+      "properties": {
+        "hardware": {
+          "$ref": "#/definitions/Hardware"
+        },
+        "availability": {
+          "type": "string",
+          "description": "'available' when hardware.available > 0, otherwise 'unavailable'."
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VendorAlternative"
+          },
+          "description": "Vendor suggestions; filled only when nothing is available."
+        },
+        "alternativeLookupStatus": {
+          "type": "string",
+          "description": "'temporarily_unavailable' when the vendor lookup failed (rest of response still valid)."
+        }
+      }
+    },
+    "UpdateHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "hardwareId": {
+          "type": "string"
+        },
+        "expectedVersion": {
+          "type": "string",
+          "format": "int64",
+          "description": "Fails with ABORTED if the stored version differs."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "assetTag": {
+          "type": "string"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "description": "active | damaged | under_maintenance"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "RetireHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "hardwareId": {
+          "type": "string"
+        },
+        "expectedVersion": {
+          "type": "string",
+          "format": "int64",
+          "description": "Fails with ABORTED if the stored version differs."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "confirmed": {
+          "type": "boolean",
+          "description": "Must be true."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "AdjustHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "hardwareId": {
+          "type": "string"
+        },
+        "expectedVersion": {
+          "type": "string",
+          "format": "int64",
+          "description": "Fails with ABORTED if the stored version differs."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "delta": {
+          "type": "string",
+          "format": "int64",
+          "description": "Signed, non-zero change to total."
+        },
+        "confirmed": {
+          "type": "boolean",
+          "description": "Must be true."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "AllocateHardwareRequest": {
+      "type": "object",
+      "properties": {
+        "hardwareId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string",
+          "format": "int64",
+          "description": "The new total reserved for the project (not a delta)."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "expectedVersion": {
+          "type": "string",
+          "format": "int64",
+          "description": "Fails with ABORTED if the stored version differs."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "ListAllocationsRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "hardwareId": {
+          "type": "string"
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ListAllocationsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Allocation"
+          }
+        },
+        "total": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "CreateCheckoutRequest": {
+      "type": "object",
+      "properties": {
+        "hardwareId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string",
+          "format": "int64"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "ListCheckoutsRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "hardwareId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "outstanding": {
+          "type": "boolean",
+          "description": "Default true: only checkouts with units still out."
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ListCheckoutsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Checkout"
+          }
+        },
+        "total": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ReturnCheckoutRequest": {
+      "type": "object",
+      "properties": {
+        "checkoutId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units returned now (added to the checkout's returned total)."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "expectedVersion": {
+          "type": "string",
+          "format": "int64",
+          "description": "Fails with ABORTED if the stored version differs."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "CorrectCheckoutRequest": {
+      "type": "object",
+      "properties": {
+        "checkoutId": {
+          "type": "string"
+        },
+        "returned": {
+          "type": "string",
+          "format": "int64",
+          "description": "The exact cumulative returned total."
+        },
+        "expectedVersion": {
+          "type": "string",
+          "format": "int64",
+          "description": "Fails with ABORTED if the stored version differs."
+        },
+        "reason": {
+          "type": "string"
+        },
+        "confirmed": {
+          "type": "boolean",
+          "description": "Must be true."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Caller-chosen unique id for idempotency (or send the idempotency-key header; if both are sent they must match)."
+        }
+      }
+    },
+    "ListTransactionsRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "hardwareId": {
+          "type": "string"
+        },
+        "actorId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ListTransactionsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuditEvent"
+          }
+        },
+        "total": {
+          "type": "string",
+          "format": "int64"
+        },
+        "page": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "GetSummaryRequest": {
+      "type": "object",
+      "properties": {}
+    },
+    "StatusSummary": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "records": {
+          "type": "string",
+          "format": "int64",
+          "description": "Number of hardware pools with this status."
+        },
+        "total": {
+          "type": "string",
+          "format": "int64"
+        },
+        "out": {
+          "type": "string",
+          "format": "int64"
+        },
+        "reserved": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "ProjectSummary": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "string",
+          "format": "int64",
+          "description": "Units reserved for the project across all pools."
+        },
+        "out": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "SummaryResponse": {
+      "type": "object",
+      "properties": {
+        "statuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StatusSummary"
+          }
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProjectSummary"
+          }
+        },
+        "projectLimit": {
+          "type": "string",
+          "format": "int64",
+          "description": "At most this many projects are listed."
+        }
+      }
+    },
+    "GetAuthMethodsRequest": {
+      "type": "object",
+      "properties": {}
+    },
+    "AuthMethodsResponse": {
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "boolean",
+          "description": "Team name + code sign-in is available."
+        },
+        "local": {
+          "type": "boolean",
+          "description": "Local development sign-in is available."
+        }
+      }
+    },
+    "LoginRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        }
+      }
+    },
+    "DevLoginRequest": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        }
+      }
+    },
+    "LoginResponse": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "Send as 'authorization: Bearer <token>'. Shown once; only a hash is stored."
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "LogoutRequest": {
+      "type": "object",
+      "properties": {}
+    },
+    "LogoutResponse": {
+      "type": "object",
+      "properties": {}
+    },
+    "MeRequest": {
+      "type": "object",
+      "properties": {}
+    },
+    "MeResponse": {
+      "type": "object",
+      "properties": {
+        "sub": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ReadyRequest": {
+      "type": "object",
+      "properties": {}
+    },
+    "ReadyResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "Status": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "description": "gRPC error body."
+    }
+  }
+}

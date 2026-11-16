@@ -22,7 +22,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 class _UnavailableCollection:
     def __getattr__(self, name):
         raise RuntimeError(
-            "MongoDB is not configured. Set MONGO_URI to use users and projects."
+            "MongoDB is not configured. Set MONGO_URI to use users."
         )
 
 
@@ -54,7 +54,7 @@ def ping():
     """Raise if the database is unreachable; return True on success."""
     if client is None:
         raise RuntimeError(
-            "MongoDB is not configured. Set MONGO_URI to use users and projects."
+            "MongoDB is not configured. Set MONGO_URI to use users."
         )
     client.admin.command("ping")
     return True
