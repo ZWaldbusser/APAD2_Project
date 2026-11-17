@@ -14,7 +14,6 @@ from projects import projects_pb2_grpc as services
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-DEFAULT_TARGET = "projects-grpc-vf.northcentralus.azurecontainer.io:50051"
 
 _RETRY_SAFE = {
     "SearchProjects", "GetProject",
@@ -61,9 +60,12 @@ def _stub(target, secure):
 
 
 def call(method, request):
-    target, secure = _endpoint(os.getenv("PROJECTS_GRPC_TARGET", DEFAULT_TARGET).strip())
+    value = os.getenv("PROJECTS_GRPC_TARGET", "").strip()
+    if not value:
+        raise ProjectsServiceError("PROJECTS_GRPC_TARGET is not configured")
+    target, secure = _endpoint(value)
     try:
-        timeout = float(os.getenv("PROJECTS_API_TIMEOUT_SECONDS", "15"))
+        timeout = float(os.getenv("PROJECTS_API_TIMEOUT_SECONDS", "60"))
         if not 0 < timeout < float("inf"):
             raise ValueError()
     except ValueError as error:
@@ -235,7 +237,7 @@ def get_budget_context(data):
     resp = call("GetBudgetContext", messages.GetBudgetContextRequest(
         org_id=data["orgId"], budget=float(data["budget"]), items=items,
     ))
-    result = {
+    return 200, {
         "success": True,
         "orgId": resp.org_id,
         "budget": resp.budget,
@@ -244,7 +246,6 @@ def get_budget_context(data):
         "unpricedItems": resp.unpriced_items,
         "withinBudget": resp.within_budget if resp.HasField("within_budget") else None,
     }
-    return result
 
 
 def query_project(project_id, org_id=None):
