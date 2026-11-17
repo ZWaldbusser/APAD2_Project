@@ -1,20 +1,42 @@
 # Hardware rental project
 
-React frontend with a Flask backend that integrates local MongoDB user accounts,
+React frontend with Flask adapters for the Users/MFA gRPC service,
 the Projects REST API, and the Hardware gRPC API.
 
 ## Run locally
 
-1. Copy `.env.example` to `.env` and configure `MONGO_URI`, `JWT_SECRET_KEY`,
-   `PROJECTS_API_BASE_URL`, `HARDWARE_API_BASE_URL_grpc`, and `HARDWARE_API_KEY`.
+1. Copy `.env.example` to `.env`. Confirm `PROJECTS_API_BASE_URL`,
+   `USERS_GRPC_TARGET`, `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`,
+   and the Hardware team identity. Obtain missing provider settings from their owners.
 2. Install dependencies: `npm install`, `npm install --prefix client`, and
    `python -m pip install -r server/requirements.txt`.
 3. Run `npm run dev` from the repository root.
 
 Vite reads the root `.env`. `VITE_API_BASE_URL` points to Flask (locally
 `http://127.0.0.1:5050`). In production, leave it empty for same-origin requests.
-Rebuild after changing Vite variables. Live services are the default;
-`VITE_USE_MOCKS=true` explicitly enables the development mocks.
+Restart Vite/rebuild after changing Vite variables. Users/MFA, Projects and Hardware
+always use real adapters: their browser mocks, demo accounts and review-scenario
+controls have been removed. Old `VITE_USE_MOCKS`/`VITE_MOCK_DELAY_MS` settings are
+ignored. Real sign-in and MFA are required; `demo/demo` and arbitrary six-digit
+codes are no longer review credentials.
+
+The Overview aggregate is still unconfirmed on this branch; there is no matching
+Flask `/api/visualization` route. Its normal client reports unavailable when no
+real source is configured. `VITE_USE_VISUALIZATION_MOCKS=true` explicitly enables
+only a labelled **Sample Overview**. It never intercepts authentication, project
+or hardware calls and does not supply verified agency/inventory figures.
+
+| Browser API (Flask) | Upstream contract | Configuration |
+| --- | --- | --- |
+| `/api/users-service/*` | Users/MFA gRPC | `USERS_GRPC_TARGET` (documented default in the template) |
+| `/api/projects-service/*` | Projects REST v1.4 | `PROJECTS_API_BASE_URL` |
+| POST `/api/hardware`, `/api/listAllocations` and existing hardware write routes | Hardware gRPC | `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`, `HARDWARE_API_TEAM` |
+
+The Projects URL comes from the tracked Projects Team API Contract v1.4.
+Hardware's active transport is documented in `server/hardware/hardware.proto`,
+`server/hardware/hardware_openapi.yaml` and the gRPC adapter. The root `hardware.yaml`
+describes a different REST/session interface; it is not the browser's current transport.
+Endpoint contracts do not prove credentials, reachability or end-to-end acceptance.
 
 ## Service boundaries
 
@@ -22,7 +44,7 @@ Rebuild after changing Vite variables. Live services are the default;
 - `client/src/services/projects.js`: Projects API operations.
 - `client/src/services/hardware.js`: inventory, allocations, retry orchestration,
   and joined allocation/catalog data for project details and resource rental.
-- `client/src/services/users.js`: local MongoDB user authentication.
+- `client/src/services/users.js`: Users-service registration/login/MFA/profile client.
 - `server/app.py`: Flask entry point, users, authentication, and hardware routes.
 - `server/routes/projects.py`: authenticated Projects API routes under
   `/api/projects-service`, separate from React's `/projects/...` navigation.
@@ -31,7 +53,9 @@ Rebuild after changing Vite variables. Live services are the default;
 - `server/hardwareDatabase.py`: hardware application operations and response mapping.
 - `server/hardware/client.py`: working gRPC transport and checkout lookup logic.
 - `server/hardware/hardware.proto` and generated bindings: hardware wire contract.
-- `server/usersDatabase.py` and `server/db.py`: MongoDB user persistence.
+- `server/users/client.py`: Users gRPC transport and access-token validation.
+- `server/usersDatabase.py` and `server/db.py`: retained legacy persistence files;
+  the current authentication path uses the Users service.
 
 `server/projectsDatabase.py` is retained as legacy code and is not used by the
 application. Project creation, search, details, membership, and price-context
@@ -52,7 +76,7 @@ available with a retry message.
 The Hardware API owns actual reservations and checkout quantities. Project details
 and resource rental read all allocation pages and join them to hardware names.
 Remaining project capacity is `quantity - out`; check-in/out refreshes these values.
-Check-in reads all outstanding checkouts for the authenticated MongoDB user before
+Check-in reads all outstanding checkouts for the authenticated Users-service ID before
 returning units. An excessive return is rejected before any writes. A return across
 multiple checkout records uses multiple RPCs; if a later RPC fails, the client
 reloads the allocations to show earlier completed returns.
@@ -101,4 +125,5 @@ Use Node.js then Python buildpacks. Configure the same server environment variab
 as local development, and leave `VITE_API_BASE_URL` empty. The root
 `heroku-postbuild` script builds React; the included `Procfile` starts
 `gunicorn server.app:app`, which serves Flask and `client/dist` together.
-`/api/health/db` checks the MongoDB connection.
+The current app does not expose a MongoDB health-check route. A successful page load
+alone does not verify upstream data services; check their read-only adapter requests.

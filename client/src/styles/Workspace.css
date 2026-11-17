@@ -765,19 +765,3 @@
     scroll-behavior: auto !important;
   }
 }
-.workspace-fixture-picker {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.workspace-fixture-picker select {
-  font: inherit;
-  color: var(--workspace-ink);
-  background: var(--brand-white);
-  border: 1px solid var(--workspace-control-line);
-  border-radius: 5px;
-  min-height: 44px;
-  padding: 8px;
-  max-width: 100%;
-}

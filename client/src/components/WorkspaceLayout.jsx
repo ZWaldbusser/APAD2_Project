@@ -9,8 +9,6 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { agencyNames } from "../projectContext";
-import { USE_MOCKS } from "../config";
-import MockScenarioPicker from "../mocks/MockScenarioPicker";
 import "../styles/Workspace.css";
 
 function Icon({ name }) {
@@ -164,13 +162,6 @@ export default function WorkspaceLayout() {
             <span>{profile.value?.name || "Account"}</span>
           </Link>
         </header>
-        {USE_MOCKS && (
-          <div className="workspace-sample">
-            <strong>Sample workspace</strong>
-            <span>Local fixtures · changes reset on reload</span>
-            {import.meta.env.DEV && <MockScenarioPicker />}
-          </div>
-        )}
         <div
           ref={main}
           id="workspace-content"
