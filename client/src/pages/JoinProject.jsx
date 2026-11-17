@@ -3,14 +3,7 @@ import "../styles/Login.css";
 import { useNavigate } from "react-router-dom";
 import { users, projects } from "../services";
 
-const ORG_OPTIONS = [
-  { code: "AUS", label: "City of Austin" },
-  { code: "DAL", label: "City of Dallas" },
-  { code: "TEX", label: "State of Texas" },
-];
-
 function JoinProject() {
-  const [orgId, setOrgId] = useState("AUS");
   const [projectID, setProjectID] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState("");
@@ -37,9 +30,9 @@ function JoinProject() {
 
     try {
       const res = await projects.joinProject({
-        orgId,
+        orgId: currentUser.agencyCode,
         projectId: projectID.trim(),
-        userId: currentUser.userid || currentUser.id,
+        userId: String(currentUser.id),
       });
       const data = await res.json();
 
@@ -60,12 +53,8 @@ function JoinProject() {
         <div className="login-box">
           <h1>Join Project</h1>
 
-          <label>Agency</label>
-          <select value={orgId} onChange={(e) => setOrgId(e.target.value)}>
-            {ORG_OPTIONS.map((o) => (
-              <option key={o.code} value={o.code}>{o.label} ({o.code})</option>
-            ))}
-          </select>
+          <label htmlFor="join-agency">Agency</label>
+          <input id="join-agency" value={currentUser?.agencyCode || ""} readOnly />
 
           <label>Project ID</label>
           <input

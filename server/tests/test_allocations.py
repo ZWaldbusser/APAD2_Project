@@ -1,22 +1,25 @@
 """Flask-to-gRPC allocation contract, isolated from live data."""
-import os
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ.setdefault("JWT_SECRET_KEY", "test-key-with-at-least-32-characters")
 import app
 import hardwareDatabase as hardware_db
 from hardware import hardware_pb2 as messages
 from hardware.client import HardwareServiceError
+from projects import projects_pb2 as project_messages
+from auth_support import authenticate
+from projects_support import start_projects
 
 
 class AllocationTests(unittest.TestCase):
     def setUp(self):
         self.client = app.app.test_client()
-        token = app.jwt.encode({"user_id": "user-1"}, app.SECRET_KEY, algorithm="HS256")
-        self.headers = {"Authorization": f"Bearer {token}"}
+        self.headers = authenticate(self, agency="DAL")
+        self.projects = start_projects(self, [project_messages.Project(
+            org_id="DAL", project_id="project-1", project_name="Project",
+        )])
         self.body = {"expected_version": 3, "reason": "Initial allocation", "quantity": 10, "orgId": "DAL"}
         self.path = "/api/hardware/hw-1/allocations/project-1"
 
@@ -33,19 +36,17 @@ class AllocationTests(unittest.TestCase):
             project_id="project-1", page=2, size=10))
 
     def test_allocate_validates_remote_project_and_uses_inventory_version(self):
-        with patch.object(app.projects_api, "query_project", return_value={"projectId": "project-1"}) as lookup, \
-                patch.object(hardware_db.hardware_grpc, "call", return_value=messages.Hardware(version=4)) as upstream:
+        with patch.object(hardware_db.hardware_grpc, "call", return_value=messages.Hardware(version=4)) as upstream:
             response = self.client.post(self.path, json=self.body, headers=self.headers)
         self.assertEqual(response.status_code, 200)
-        lookup.assert_called_once_with("project-1", "DAL")
+        self.assertEqual(self.projects.calls[0][1].org_id, "DAL")
         upstream.assert_called_once_with("AllocateHardware", messages.AllocateHardwareRequest(
             hardware_id="hw-1", project_id="project-1", expected_version=3,
             quantity=10, reason="Initial allocation"))
 
     def test_conflicts_and_unavailable_are_preserved(self):
         for status in (409, 503):
-            with patch.object(app.projects_api, "query_project", return_value={"projectId": "project-1"}), \
-                    patch.object(hardware_db.hardware_grpc, "call", side_effect=HardwareServiceError("Upstream failed", status)):
+            with patch.object(hardware_db.hardware_grpc, "call", side_effect=HardwareServiceError("Upstream failed", status)):
                 response = self.client.post(self.path, json=self.body, headers=self.headers)
             self.assertEqual(response.status_code, status)
             self.assertEqual(response.json, {"error": "Upstream failed"})
@@ -57,8 +58,8 @@ class AllocationTests(unittest.TestCase):
                 response = self.client.post(self.path, json={**self.body, **invalid}, headers=self.headers)
                 self.assertEqual(response.status_code, 400)
                 upstream.assert_not_called()
-        with patch.object(app.projects_api, "query_project", return_value=None), \
-                patch.object(hardware_db.hardware_grpc, "call") as upstream:
+        self.projects.records.clear()
+        with patch.object(hardware_db.hardware_grpc, "call") as upstream:
             self.assertEqual(self.client.post(self.path, json=self.body, headers=self.headers).status_code, 404)
             upstream.assert_not_called()
 
