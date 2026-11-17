@@ -48,6 +48,11 @@
   font-weight: 600;
 }
 
+.notification-inbox {
+  display: flex;
+  align-items: center;
+}
+
 .page-header__logout-btn {
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.14);

@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { agencyNames } from "../projectContext";
+import NotificationInbox from "./NotificationInbox";
 import "../styles/Workspace.css";
 
 function Icon({ name }) {
@@ -155,12 +156,15 @@ export default function WorkspaceLayout() {
             <span aria-hidden="true"> / </span>
             <strong>{title}</strong>
           </div>
-          <Link to="/userportal" className="workspace-account">
-            <span className="workspace-avatar" aria-hidden="true">
-              {(profile.value?.name || "?").slice(0, 1).toUpperCase()}
-            </span>
-            <span>{profile.value?.name || "Account"}</span>
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <NotificationInbox userId={profile.value?.id} />
+            <Link to="/userportal" className="workspace-account">
+              <span className="workspace-avatar" aria-hidden="true">
+                {(profile.value?.name || "?").slice(0, 1).toUpperCase()}
+              </span>
+              <span>{profile.value?.name || "Account"}</span>
+            </Link>
+          </div>
         </header>
         <div
           ref={main}
