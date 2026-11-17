@@ -82,7 +82,7 @@ def create_blueprint(token_required):
     @routes.route("/get_budget_context", methods=["POST"])
     @token_required
     def budget_context():
-        payload = get_budget_context(agency_data(json_object()))
-        return jsonify(payload), 200
+        status, payload = get_budget_context(agency_data(json_object()))
+        return jsonify(payload), status
 
     return routes

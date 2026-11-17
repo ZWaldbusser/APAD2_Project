@@ -7,8 +7,8 @@ the Projects gRPC API, and the Hardware gRPC API.
 
 1. Create a private root `.env`. Confirm `PROJECTS_GRPC_TARGET`,
    `USERS_GRPC_TARGET`, `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`,
-   and `HARDWARE_API_TEAM` with their owners. The Projects and Users clients have
-   documented default targets; Hardware host/key must be supplied privately.
+   and `HARDWARE_API_TEAM` with their owners. Projects requires an explicit target;
+   Users retains its documented default. Hardware host/key must be supplied privately.
    Keep all provider credentials server-side without a `VITE_` prefix. The repository
    does not currently include an `.env.example`; never commit your `.env`.
 2. Install dependencies: `npm install`, `npm install --prefix client`, and
@@ -109,8 +109,8 @@ eligibility and allocation-writer ownership are not changed by this repair.
 
 ## Projects gRPC configuration
 
-`PROJECTS_GRPC_TARGET` is a host/port or service URL without a path. The supplied
-service currently uses plaintext HTTP/2; the client default selects that transport.
+`PROJECTS_GRPC_TARGET` is a required host/port or service URL without a path. The supplied
+service currently uses plaintext HTTP/2; a bare host/port selects that transport.
 Use the target supplied by Projects if its deployment address changes. The Flask
 adapter validates the user's token and agency because Projects itself does not
 authenticate the caller. `PROJECTS_API_BASE_URL` is no longer used by the app.
@@ -126,7 +126,7 @@ authorization metadata and stay on the server. All hardware calls use gRPC;
 `HARDWARE_API_BASE_URL` and old browser proxy URLs are not used.
 
 `HARDWARE_API_TIMEOUT_SECONDS` defaults to 10 seconds;
-`PROJECTS_API_TIMEOUT_SECONDS` defaults to 15 seconds.
+`PROJECTS_API_TIMEOUT_SECONDS` defaults to 60 seconds.
 Hardware mutations have unique request IDs; a transient `UNAVAILABLE` retry reuses
 the same ID within the original deadline. Version conflicts return HTTP 409.
 Project mutations are not automatically retried.

@@ -173,6 +173,17 @@ class TrustedProjectContextTests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertNotIn("projectList", response.json)
 
+    def test_budget_context_keeps_verified_agency_and_unwraps_provider_status(self):
+        result = messages.GetBudgetContextResponse(org_id="AUS", budget=100, unpriced_items=1)
+        with patch.object(projects, "call", return_value=result) as provider:
+            response = self.http.post("/api/projects-service/get_budget_context",
+                                      headers=self.headers,
+                                      json={"budget": 100, "items": [{"description": "Monitor", "quantity": 1}]})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["orgId"], "AUS")
+        self.assertIsNone(response.json["withinBudget"])
+        self.assertEqual(provider.call_args.args[1].org_id, "AUS")
+
 
 if __name__ == "__main__":
     unittest.main()
