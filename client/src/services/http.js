@@ -1,7 +1,6 @@
 // Shared HTTP layer for all backend services.
 
-import { SERVICE_URLS, USE_MOCKS, MOCK_DELAY_MS } from "../config";
-import { handleMockRequest } from "../mocks";
+import { SERVICE_URLS } from "../config";
 
 export function getToken() {
   try {
@@ -30,17 +29,11 @@ export async function request(service, path, options = {}) {
   const { method = "GET", body, auth = true, headers = {} } = options;
   const token = getToken();
 
-  let res;
-  if (USE_MOCKS) {
-    // A per-request Authorization header (e.g. the 2FA mfaToken) overrides the stored token
-    const mockToken = headers.Authorization
-      ? headers.Authorization.replace(/^Bearer\s+/i, "")
-      : token;
-    res = await mockFetch(service, method, path, body, mockToken);
-  } else {
-    const baseUrl = SERVICE_URLS[service];
-    if (baseUrl === undefined) throw new Error(`Unknown service: ${service}`);
-    res = await fetch(`${baseUrl}${service === "projects" ? "/api/projects-service" : ""}${path}`, {
+  const baseUrl = SERVICE_URLS[service];
+  if (baseUrl === undefined) throw new Error(`Unknown service: ${service}`);
+  const res = await fetch(
+    `${baseUrl}${service === "projects" ? "/api/projects-service" : ""}${path}`,
+    {
       method,
       headers: {
         "Content-Type": "application/json",
@@ -48,19 +41,9 @@ export async function request(service, path, options = {}) {
         ...headers,
       },
       ...(body !== undefined && { body: JSON.stringify(body) }),
-    });
-  }
+    },
+  );
 
   if (auth && service === "users") handleUnauthorized(res);
   return res;
-}
-
-async function mockFetch(service, method, path, body, token) {
-  await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY_MS));
-  const { status, data } = handleMockRequest(service, method, path, body, token);
-  console.debug(`[mock:${service}] ${method} ${path} -> ${status}`);
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

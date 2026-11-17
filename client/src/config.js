@@ -9,5 +9,11 @@ export const SERVICE_URLS = {
   hardware: API_BASE_URL,
   visualization: clean(env.VITE_VISUALIZATION_URL) || API_BASE_URL,
 };
-export const USE_MOCKS = env.VITE_USE_MOCKS === "true";
-export const MOCK_DELAY_MS = Number(env.VITE_MOCK_DELAY_MS ?? 300);
+// Only the unconfirmed Overview aggregate may use an explicitly labelled sample.
+// Users/MFA, Projects and Hardware always use the configured Flask adapters.
+export const USE_VISUALIZATION_MOCKS =
+  env.VITE_USE_VISUALIZATION_MOCKS === "true";
+
+// Compatibility for the unmerged notification component in PR #22.
+// This is never an environment-controlled mode and enables no app mocks.
+export const USE_MOCKS = false;
