@@ -1,0 +1,223 @@
+// projects.proto: gRPC contract for the Projects microservice (APAD Projects group)
+// Draft v0.1, 5 November 2026. Mirrors API contract v1.4.
+//
+// Conventions
+// - Field names are snake_case. In JSON (Postman, grpcurl) they appear as camelCase:
+//   org_id -> orgId, creator_id -> creatorId.
+// - A successful call returns OK. Errors use standard gRPC status codes instead of
+//   success / errorMessage fields. The status message holds the readable error text.
+//     INVALID_ARGUMENT     missing or invalid field (REST 400 / 422)
+//     NOT_FOUND            project does not exist (REST 404)
+//     ALREADY_EXISTS       duplicate project, or user already joined (REST 409)
+//     FAILED_PRECONDITION  leaving a project the user is not a member of (REST 409)
+//     UNAVAILABLE          database or Azure SQL temporarily unreachable; safe to retry
+//     INTERNAL             unexpected server error (REST 500)
+// - Price sources (Austin, Dallas, Texas) return available = false with no stats when
+//   there is no usable data. This replaces the REST string "not available".
+// - The server also exposes gRPC server reflection and the standard grpc.health.v1
+//   health service, so Postman and grpcurl can call it without this file.
+
+syntax = "proto3";
+
+package projects.v1;
+
+service ProjectsService {
+  // Projects (MongoDB Atlas)
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc JoinProject(MembershipRequest) returns (MembershipResponse);
+  rpc LeaveProject(MembershipRequest) returns (MembershipResponse);
+  rpc SearchProjects(SearchProjectsRequest) returns (SearchProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+
+  // Price context (Azure SQL)
+  rpc GetUnitPrice(GetUnitPriceRequest) returns (GetUnitPriceResponse);
+  rpc GetDepartmentSpend(GetDepartmentSpendRequest) returns (GetDepartmentSpendResponse);
+  rpc GetBudgetContext(GetBudgetContextRequest) returns (GetBudgetContextResponse);
+}
+
+// ============================================================ shared project types
+
+// Hardware a project needs. Names and checked-out counts come from the Hardware
+// team's service, which the frontend calls directly.
+message HardwareItem {
+  string hardware_id = 1;  // required, e.g. "HW001"
+  int32 allocation = 2;    // required, > 0: units the project needs
+}
+
+message Project {
+  string org_id = 1;        // "AUS", "DAL" or "TEX"
+  string project_id = 2;    // unique within org_id
+  string project_name = 3;
+  string project_desc = 4;
+  string creator_id = 5;    // Users team user ID
+  int64 budget = 6;         // US dollars, >= 0
+  repeated HardwareItem hardware_list = 7;
+  repeated string joined_users = 8;  // user IDs; the creator is always first
+}
+
+// ============================================================ CreateProject
+
+message CreateProjectRequest {
+  string org_id = 1;        // required: "AUS", "DAL" or "TEX"
+  string project_id = 2;    // required, typed by the creator
+  string project_name = 3;  // required
+  string project_desc = 4;  // optional, defaults to ""
+  string creator_id = 5;    // required; added to joined_users
+  int64 budget = 6;         // required, >= 0
+  repeated HardwareItem hardware_list = 7;  // optional
+}
+
+// Empty on success. Errors: INVALID_ARGUMENT, ALREADY_EXISTS.
+message CreateProjectResponse {}
+
+// ============================================================ JoinProject / LeaveProject
+
+message MembershipRequest {
+  string org_id = 1;      // required
+  string project_id = 2;  // required
+  string user_id = 3;     // required
+}
+
+// Empty on success.
+// Join errors:  NOT_FOUND, ALREADY_EXISTS (already a member).
+// Leave errors: NOT_FOUND, FAILED_PRECONDITION (not a member).
+// A successful join or leave also notifies the project creator through Novu.
+message MembershipResponse {}
+
+// ============================================================ SearchProjects
+
+// Both filters are optional; unset or blank filters are ignored and the rest are
+// combined with AND. Send an empty request to list every project.
+message SearchProjectsRequest {
+  optional string org_id = 1;
+  optional string project_id = 2;
+}
+
+message ProjectSummary {
+  string project_id = 1;
+  string project_name = 2;
+  string org_id = 3;
+}
+
+// An empty result is OK with an empty list, not NOT_FOUND.
+message SearchProjectsResponse {
+  repeated ProjectSummary project_list = 1;
+}
+
+// ============================================================ GetProject
+
+message GetProjectRequest {
+  string project_id = 1;  // required
+  string org_id = 2;      // required
+}
+
+// Errors: NOT_FOUND.
+message GetProjectResponse {
+  Project project_info = 1;
+}
+
+// ============================================================ shared price types
+
+// Typical price per unit. median is typical; low and high are the 25th and 75th
+// percentiles; purchases is the number of priced purchase lines (at least 3).
+message PriceStats {
+  double median = 1;
+  double low = 2;
+  double high = 3;
+  int32 purchases = 4;
+}
+
+message SourceUnitPrice {
+  bool available = 1;
+  PriceStats stats = 2;  // set only when available is true
+}
+
+// ============================================================ GetUnitPrice
+
+message GetUnitPriceRequest {
+  // required: an exact Austin commodity description (case-insensitive) or
+  // commodity code, e.g. "Microcomputers, Handheld, Laptop, and Notebook"
+  string category = 1;
+}
+
+// Only Austin has unit prices today; Dallas and Texas return available = false.
+// Errors: INVALID_ARGUMENT (blank category), UNAVAILABLE.
+message GetUnitPriceResponse {
+  string category = 1;
+  SourceUnitPrice austin = 2;
+  SourceUnitPrice dallas = 3;
+  SourceUnitPrice texas = 4;
+}
+
+// ============================================================ GetDepartmentSpend
+
+message GetDepartmentSpendRequest {
+  // required, at least 3 characters; substring match on item and category labels
+  string keyword = 1;
+}
+
+// Yearly spend per department. typical_yearly is the median yearly total;
+// low and high are the 25th and 75th percentiles.
+message SpendStats {
+  double typical_yearly = 1;
+  double low = 2;
+  double high = 3;
+  int32 departments = 4;
+  repeated int32 years = 5;
+  repeated string matched_labels = 6;  // up to 5 labels that matched the keyword
+}
+
+message SourceSpend {
+  bool available = 1;
+  SpendStats stats = 2;  // set only when available is true
+}
+
+// Austin has no department column, so austin is always available = false.
+// Errors: INVALID_ARGUMENT (keyword under 3 characters), UNAVAILABLE.
+message GetDepartmentSpendResponse {
+  string keyword = 1;
+  SourceSpend austin = 2;
+  SourceSpend dallas = 3;
+  SourceSpend texas = 4;
+}
+
+// ============================================================ GetBudgetContext
+
+message BudgetItem {
+  string description = 1;  // required
+  int32 quantity = 2;      // required, > 0
+}
+
+message GetBudgetContextRequest {
+  string org_id = 1;              // required
+  double budget = 2;              // required, US dollars
+  repeated BudgetItem items = 3;  // required, at least one
+}
+
+message CostRange {
+  double low = 1;
+  double typical = 2;
+  double high = 3;
+}
+
+message ItemEstimate {
+  string description = 1;
+  int32 quantity = 2;
+  bool priced = 3;                // false when no Austin category matched
+  string matched_category = 4;    // set only when priced
+  double confidence = 5;          // 0 when not priced
+  PriceStats unit_price = 6;      // set only when priced
+  CostRange estimated_cost = 7;   // quantity x unit price; set only when priced
+}
+
+// Errors: INVALID_ARGUMENT (empty items, quantity <= 0), UNAVAILABLE.
+message GetBudgetContextResponse {
+  string org_id = 1;
+  double budget = 2;
+  repeated ItemEstimate items = 3;
+  CostRange total_estimate = 4;   // sum over priced items only
+  int32 unpriced_items = 5;
+  // Unset ("can't tell") when any item is unpriced; otherwise whether the
+  // typical total is within the budget.
+  optional bool within_budget = 6;
+}

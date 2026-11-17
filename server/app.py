@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from services import projects as projects_api
+from projects.client import ProjectsServiceError, query_project as _query_project
 from routes.projects import create_blueprint as create_projects_blueprint
 import hardwareDatabase as hardware_db
 from hardware.client import HardwareServiceError
@@ -30,7 +30,7 @@ def handle_runtime_error(error):
     return jsonify({"error": str(error)}), 503
 
 
-@app.errorhandler(projects_api.ProjectsServiceError)
+@app.errorhandler(ProjectsServiceError)
 @app.errorhandler(HardwareServiceError)
 @app.errorhandler(UsersServiceError)
 def handle_upstream_service_error(error):
@@ -108,7 +108,7 @@ def checkout_hardware():
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    if not projects_api.query_project(data["projectId"], data.get("orgId")):
+    if not _query_project(data["projectId"], data.get("orgId")):
         return jsonify({"error": "Project not found"}), 404
 
     success, message = hardware_db.checkout_hardware(
@@ -132,7 +132,7 @@ def checkin_hardware():
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    project = projects_api.query_project(data["projectId"], data.get("orgId"))
+    project = _query_project(data["projectId"], data.get("orgId"))
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
@@ -172,7 +172,7 @@ def set_allocation(hardware_id, project_id):
         return jsonify({"error": "expected_version must be an integer between 1 and 1000000"}), 400
     if not isinstance(data.get("reason"), str) or not 3 <= len(data["reason"]) <= 1000:
         return jsonify({"error": "reason must be between 3 and 1000 characters"}), 400
-    if not projects_api.query_project(project_id, data.get("orgId")):
+    if not _query_project(project_id, data.get("orgId")):
         return jsonify({"error": "Project not found"}), 404
     status, payload = hardware_db.set_allocation(hardware_id, project_id, {
         "expected_version": data["expected_version"],
