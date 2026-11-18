@@ -1,0 +1,45 @@
+.notification-bell {
+  background: none;
+  color: inherit;
+  border: none;
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.notification-count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  background: #bf5700;
+  color: #fff;
+  border-radius: 12px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.notification-unavailable {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 190px;
+  font-size: 13px;
+}
+.notification-unavailable button {
+  background: #fff;
+  color: #bf5700;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  min-height: 44px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
