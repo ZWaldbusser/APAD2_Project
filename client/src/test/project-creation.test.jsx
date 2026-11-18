@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { request } from "../services/http";
@@ -58,12 +58,18 @@ test("creation displays the verified agency as a fixed field", async () => {
 
 test("the existing join form uses the account agency and canonical string ID", async () => {
   const user = userEvent.setup();
+  const provider = request.getMockImplementation();
+  request.mockImplementation((service, path, options) => path === "/projects/search_project"
+    ? Promise.resolve(response({ projectList: [{ orgId: "DAL", projectId: "CIVIC-26", projectName: "Library refresh", joined_users: [] }] }))
+    : provider(service, path, options));
   window.history.replaceState({}, "", "/joinproject");
   render(<App />);
   expect(await screen.findByLabelText("Agency")).toHaveValue("DAL");
   expect(screen.getByLabelText("Agency")).toHaveAttribute("readonly");
   await user.type(screen.getByPlaceholderText("Enter project ID"), "CIVIC-26");
-  await user.click(screen.getByRole("button", { name: "Join Project" }));
+  await user.click(screen.getByRole("button", { name: "Find project" }));
+  await user.click(await screen.findByRole("button", { name: "Join project" }));
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Join project" }));
   expect(request).toHaveBeenCalledWith("projects", "/projects/join_project", {
     method: "POST", body: { orgId: "DAL", projectId: "CIVIC-26", userId: "7" },
   });

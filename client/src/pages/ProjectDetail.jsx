@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Link,
   useLocation,
@@ -12,12 +12,16 @@ import { useRead } from "../hooks/useRead";
 import {
   agencyNames,
   hasDisplayableDetails,
-  isIdentifier,
+  membershipIds,
+  projectJoinPath,
+  projectListReturn,
   isProjectSummary,
 } from "../projectContext";
 import WorkspaceState from "../components/WorkspaceState";
 import ProjectEquipment from "../components/ProjectEquipment";
-import Swal from "sweetalert2";
+import MembershipDialog from "../components/MembershipDialog";
+import { useMembershipAction } from "../hooks/useMembershipAction";
+import "../styles/Membership.css";
 
 function ProjectRecord({ orgId, projectId, profile, back }) {
   const navigate = useNavigate();
@@ -38,55 +42,12 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
   }, [projectId, orgId]);
   const resource = useRead(load, JSON.stringify([orgId, projectId]));
   const project = resource.value;
-  const members =
-    Array.isArray(project?.joined_users) &&
-    project.joined_users.every(isIdentifier)
-      ? project.joined_users
-      : null;
-  const isMember = members?.some((id) => String(id) === profile.id);
-
-  // Retain the existing leave action; the membership refresh belongs to #12.
-  const handleLeave = async () => {
-    const confirm = await Swal.fire({
-      icon: "warning",
-      title: "Leave Project?",
-      text: "Are you sure you want to leave this project?",
-      showCancelButton: true,
-      confirmButtonText: "Yes, leave",
-      confirmButtonColor: "#BF5700",
-    });
-    if (!confirm.isConfirmed) return;
-    try {
-      const res = await projectsApi.leaveProject({
-        orgId,
-        projectId,
-        userId: profile.id,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        await Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: data.errorMessage || "Could not leave project",
-        });
-        return;
-      }
-      await Swal.fire({
-        icon: "success",
-        title: "Left Project",
-        text: "You have left the project.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-      navigate("/projects");
-    } catch {
-      await Swal.fire({
-        icon: "error",
-        title: "Connection Error",
-        text: "Could not reach server.",
-      });
-    }
-  };
+  const members = membershipIds(project);
+  const isMember = members?.includes(profile.id);
+  const [review, setReview] = useState(false);
+  const membership = useMembershipAction("leave", project, profile, () => {
+    navigate(back, { state: { membershipNotice: "left" } });
+  });
 
   if (resource.status === "loading")
     return (
@@ -135,9 +96,20 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
         headingLevel={1}
         title="Membership required"
         action={
-          <Link className="workspace-button" to="/joinproject">
-            Join a project
-          </Link>
+          <div className="membership-form-actions">
+            <button
+              className="workspace-button secondary"
+              onClick={resource.retry}
+            >
+              Refresh membership
+            </button>
+            <Link
+              className="workspace-button"
+              to={projectJoinPath(project, back)}
+            >
+              Join this project
+            </Link>
+          </div>
         }
       >
         You are not a member of this project. Join it through your agency to
@@ -221,10 +193,33 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
         <Link to={back} className="workspace-text-link">
           Back to projects
         </Link>
-        <button className="workspace-button secondary" onClick={handleLeave}>
+        <button
+          className="workspace-button secondary"
+          onClick={() => {
+            membership.reset();
+            setReview(true);
+          }}
+        >
           Leave project
         </button>
       </div>
+      {review && (
+        <MembershipDialog
+          project={project}
+          profile={profile}
+          action="leave"
+          onCancel={() => setReview(false)}
+          onConfirm={membership.perform}
+          busy={membership.busy}
+          error={membership.error}
+          needsSignIn={membership.needsSignIn}
+          onRefresh={() => {
+            setReview(false);
+            membership.reset();
+            resource.retry();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -238,16 +233,17 @@ export default function ProjectDetail() {
   // Legacy bare deep links use known account context, never an invented AUS.
   const orgId = params.has("orgId") ? params.get("orgId") : agency;
   const proposedBack = location.state?.returnTo;
-  const back =
-    typeof proposedBack === "string" &&
-    (proposedBack === "/projects" || proposedBack.startsWith("/projects?"))
-      ? proposedBack
-      : "/projects";
+  const back = projectListReturn(proposedBack);
   return (
     <main className="workspace-page">
       <Link className="workspace-back" to={back}>
         ← Back to projects
       </Link>
+      {location.state?.membershipNotice === "joined" && (
+        <p className="membership-notice" role="status">
+          Join request saved. Check your current membership below.
+        </p>
+      )}
       {profile.status === "loading" ? (
         <WorkspaceState headingLevel={1} title="Loading workspace…" loading>
           Checking your account and agency.

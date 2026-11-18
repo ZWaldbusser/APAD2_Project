@@ -11,6 +11,25 @@ export const isIdentifier = (value) =>
   (typeof value === "string" && value.trim() !== "") ||
   (typeof value === "number" && Number.isFinite(value));
 
+export const membershipIds = (project) =>
+  Array.isArray(project?.joined_users) &&
+  project.joined_users.every(isIdentifier)
+    ? project.joined_users.map(String)
+    : null;
+
+export const projectListReturn = (value) =>
+  typeof value === "string" &&
+  (value === "/projects" || value.startsWith("/projects?"))
+    ? value
+    : "/projects";
+
+export const projectJoinPath = (project, returnTo = "/projects?view=agency") =>
+  `/joinproject?${new URLSearchParams({
+    projectId: project.projectId,
+    orgId: project.orgId,
+    returnTo: projectListReturn(returnTo),
+  })}`;
+
 export const isProjectSummary = (project) =>
   project &&
   typeof project.projectId === "string" &&
