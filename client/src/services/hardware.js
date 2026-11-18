@@ -31,6 +31,12 @@ async function allPages(fetchPage) {
 }
 
 export const getAllHardware = () => allPages(listHardware);
+
+export const getVendorRankings = ({ projectId, hardwareId, quantity }) =>
+  request("hardware", "/api/integration/vendor-rankings", {
+    method: "POST",
+    body: { projectId, hardwareId, quantity },
+  });
 export const getProjectAllocations = (projectId) =>
   allPages((params) => listAllocations(projectId, params));
 

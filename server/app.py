@@ -16,6 +16,7 @@ from hardware.client import HardwareServiceError
 from routes.users import create_blueprint as create_users_blueprint
 from users.client import UsersServiceError, validate_access_token
 from request_scope import agency_data, json_object, reject, require_text
+from services.vendor_rankings import get_vendor_rankings
 
 from functools import wraps
 
@@ -86,6 +87,20 @@ def serve_react_app(path):
 
 app.register_blueprint(create_users_blueprint(), url_prefix="/api/users-service")
 app.register_blueprint(create_projects_blueprint(token_required), url_prefix="/api/projects-service")
+
+
+@app.route("/api/integration/vendor-rankings", methods=["POST"])
+@token_required
+def vendor_rankings():
+    data = agency_data(json_object())
+    require_text(data, "projectId", "hardwareId")
+    quantity = data.get("quantity")
+    if type(quantity) is not int or not 0 < quantity <= 2**31 - 1:
+        reject("Quantity must be a positive whole number up to 2147483647")
+    return jsonify(get_vendor_rankings(
+        data["projectId"], request.agency_code, request.user_id,
+        data["hardwareId"], quantity,
+    ))
 
 
 # Hardware routes (view hardware, checkout, check-in)

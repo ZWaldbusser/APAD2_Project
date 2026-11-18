@@ -12,11 +12,11 @@ From the repository root, follow the [root setup guide](../README.md): create a 
 
 Use a real Users account and real MFA. The former `demo/demo` login, placeholder QR and arbitrary `123456` code are retired. Sign out of an old sample session before using live mode; old mock tokens cannot authenticate with the real Users service. Registration, MFA verification, project creation and allocation now reach the configured services.
 
-## Unconfirmed Overview aggregate
+## Integration summary data
 
-There is no confirmed aggregate backend route on this branch for `/api/visualization`. Without a real source, Overview reports unavailable. Set `VITE_VISUALIZATION_URL` only when the data team supplies the aggregate endpoint/contract.
+There is no confirmed aggregate backend route on this branch for `/api/visualization`. Without a real source, Integration reports that summary metrics are unavailable. Set `VITE_VISUALIZATION_URL` only when the data team supplies the aggregate endpoint/contract.
 
-For presentation work only, `VITE_USE_VISUALIZATION_MOCKS=true` enables an isolated **Sample Overview**, labelled as example figures. It has no fake Users/Projects/Hardware endpoints or provider freshness timestamp. All authentication and domain operations remain real even with this option enabled. It is off by default.
+For presentation work only, `VITE_USE_VISUALIZATION_MOCKS=true` enables an isolated **Sample summary metrics**, labelled as example figures. It has no fake Users/Projects/Hardware endpoints or provider freshness timestamp. All authentication and domain operations remain real even with this option enabled. It is off by default.
 
 ## Create-project owner check
 

@@ -23,10 +23,10 @@ controls have been removed. Old `VITE_USE_MOCKS`/`VITE_MOCK_DELAY_MS` settings a
 ignored. Real sign-in and MFA are required; `demo/demo` and arbitrary six-digit
 codes are no longer review credentials.
 
-The Overview aggregate is still unconfirmed on this branch; there is no matching
+The Integration summary aggregate is still unconfirmed on this branch; there is no matching
 Flask `/api/visualization` route. Its normal client reports unavailable when no
 real source is configured. `VITE_USE_VISUALIZATION_MOCKS=true` explicitly enables
-only a labelled **Sample Overview**. It never intercepts authentication, project
+only a labelled **Sample summary metrics**. It never intercepts authentication, project
 or hardware calls and does not supply verified agency/inventory figures.
 
 | Browser API (Flask) | Upstream contract | Configuration |
@@ -42,6 +42,17 @@ Hardware's active transport is documented in `server/hardware/hardware.proto`,
 `server/hardware/hardware_openapi.yaml` and the gRPC adapter. The root `hardware.yaml`
 describes a different REST/session interface; it is not the browser's current transport.
 Endpoint contracts do not prove credentials, reachability or end-to-end acceptance.
+
+## Alternate vendor rankings
+
+Open Integration and select a joined project, hardware item, and requested
+quantity. The panel compares Hardware's out-of-stock vendor suggestions against
+the project's total budget and displays the Projects cost benchmark when
+available. Estimates use median historical unit prices for model-name matches
+or mapped procurement commodities. The panel labels category estimates and
+excludes records outside those matches. When matching procurement records
+include a supported tag, the tag preference moves matching vendors earlier
+within their budget group while keeping all results and estimates.
 
 ## Service boundaries
 

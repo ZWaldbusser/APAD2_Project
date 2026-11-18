@@ -102,3 +102,118 @@
     order: 3;
   }
 }
+
+.vendor-ranking {
+  margin-bottom: 2rem;
+}
+
+.vendor-ranking > h2,
+.vendor-ranking-result h3 {
+  margin-top: 0;
+}
+
+.vendor-ranking-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(5rem, 7rem) auto;
+  gap: 1rem;
+  align-items: end;
+  margin: 1.25rem 0;
+}
+
+.vendor-ranking-form label,
+.vendor-ranking-preference label {
+  display: grid;
+  min-width: 0;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.vendor-ranking-form select,
+.vendor-ranking-form input,
+.vendor-ranking-preference select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem;
+  border: 1px solid var(--workspace-control-line);
+  border-radius: 6px;
+  background: var(--brand-white);
+  color: var(--workspace-ink);
+  font: inherit;
+  font-weight: 400;
+}
+
+.vendor-ranking-preference {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  min-width: 0;
+}
+
+.vendor-ranking-preference label {
+  margin-bottom: 0.4rem;
+}
+
+.vendor-ranking-preference p {
+  margin: 0.35rem 0 0;
+  color: var(--workspace-muted);
+  font-size: 0.875rem;
+}
+
+.vendor-ranking-result {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--workspace-line);
+  overflow-wrap: anywhere;
+}
+
+.vendor-ranking-list {
+  padding-inline-start: 1.5rem;
+}
+
+.vendor-ranking-list li {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--workspace-line);
+}
+
+.vendor-ranking-list li > div {
+  display: inline-block;
+  vertical-align: top;
+  width: calc(50% - 0.5rem);
+}
+
+.vendor-price {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.vendor-recommended {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  color: var(--brand-orange);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .vendor-ranking-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .vendor-ranking-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vendor-ranking-preference {
+    grid-area: auto;
+  }
+
+  .vendor-ranking-list li > div {
+    display: block;
+    width: auto;
+  }
+
+  .vendor-ranking-list li > div + div {
+    margin-top: 0.5rem;
+  }
+}
