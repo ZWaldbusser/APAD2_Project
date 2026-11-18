@@ -1,4 +1,4 @@
-// Projects service client — matches Projects API v1.4 contract.
+// Browser HTTP contract; Flask maps it to the supplied Projects v0.2 gRPC schema.
 
 import { request } from "./http";
 
@@ -24,10 +24,14 @@ export const leaveProject = ({ orgId, projectId, userId }) =>
     body: { orgId, projectId, userId },
   });
 
-export const searchProjects = ({ orgId, projectId } = {}) =>
+export const searchProjects = ({ orgId, projectId, userId } = {}) =>
   request("projects", "/projects/search_project", {
     method: "POST",
-    body: { orgId: orgId || null, projectId: projectId || null },
+    body: {
+      orgId: orgId || null,
+      projectId: projectId || null,
+      ...(userId != null && userId !== "" ? { userId: String(userId) } : {}),
+    },
   });
 
 export const getProject = (projectId, orgId) =>

@@ -6,18 +6,20 @@ import sys
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import grpc
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ.setdefault("JWT_SECRET_KEY", "grpc-hardware-test-key")
 
 import app
 import hardwareDatabase as hardware_db
 from hardware import client
 from hardware import hardware_pb2 as messages
 from hardware import hardware_pb2_grpc as services
+from projects import projects_pb2 as project_messages
+from auth_support import authenticate
+from projects_support import start_projects
 
 
 class HardwareService(services.HardwareServiceServicer):
@@ -83,13 +85,14 @@ class HardwareGrpcTests(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         self.http = app.app.test_client()
-        token = app.jwt.encode({"user_id": "user-1"}, app.SECRET_KEY, algorithm="HS256")
-        self.headers = {"Authorization": f"Bearer {token}"}
+        self.headers = authenticate(self, agency="DAL")
+        self.projects = start_projects(self, [project_messages.Project(
+            org_id="DAL", project_id="project-1", project_name="Project",
+        )])
         self.body = {"name": "Monitor", "hardwareId": "hw-1", "projectId": "project-1", "quantity": 2}
 
     def post(self, action, body=None):
-        with patch.object(app.projects_api, "query_project", return_value={"projectId": "project-1"}):
-            return self.http.post(f"/api/hardware/{action}", headers=self.headers, json=body or self.body)
+        return self.http.post(f"/api/hardware/{action}", headers=self.headers, json=body or self.body)
 
     def test_checkout_uses_protobuf_auth_and_idempotency(self):
         response = self.post("checkout")
@@ -175,41 +178,26 @@ class HardwareGrpcTests(unittest.TestCase):
             self.assertEqual(self.post("checkout", {**self.body, "quantity": quantity}).status_code, 400)
         self.assertEqual(self.service.calls, [])
 
-    def test_signup_keeps_mongo_and_project_creation_uses_api(self):
-        with patch.object(app.users_db, "create_user", return_value="user-2") as create_user:
-            response = self.http.post("/api/signup", json={"userID": "alice", "password": "test"})
-        self.assertEqual(response.status_code, 201)
-        create_user.assert_called_once_with("alice", "test")
-        body = {"orgId": "AUS", "projectId": "project-1", "projectName": "Project",
-                "creatorId": "alice", "budget": 100, "hardwareList": []}
-        with patch.object(app.projects_api, "call", return_value=(200, {"success": True})) as upstream:
-            response = self.http.post("/api/projects-service/projects/create_project",
-                                      headers=self.headers, json=body)
-        self.assertEqual(response.status_code, 200)
-        upstream.assert_called_once_with("POST", "/projects/create_project", data=body, params={})
+    def test_retired_monolith_routes_are_not_exposed(self):
+        self.assertIn(self.http.post("/api/signup", json={}).status_code, (404, 405))
+        self.assertEqual(self.http.get("/api/users").status_code, 404)
         self.assertEqual(self.service.calls, [])
 
-    def test_create_allocate_and_read_share_remote_project_without_mongo(self):
-        body = {"orgId": "DAL", "projectId": "remote-only", "projectName": "Remote project",
-                "creatorId": "alice", "budget": 100,
+    def test_create_allocate_and_read_share_remote_project(self):
+        body = {"projectId": "remote-only", "projectName": "Remote project",
+                "projectDesc": "Purpose", "creatorId": "other-user", "budget": 100,
                 "hardwareList": [{"hardwareId": "hw-1", "allocation": 10}]}
-        created = Mock(status_code=200)
-        created.json.return_value = {"success": True}
-        detail = Mock(status_code=200)
-        detail.json.return_value = {"projectInfo": body}
-        with patch.dict(os.environ, {"PROJECTS_API_BASE_URL": "https://projects.test"}), \
-                patch.object(app.projects_api.requests, "request", side_effect=[created, detail]) as upstream, \
-                patch.object(app.db, "db") as mongo:
-            response = self.http.post("/api/projects-service/projects/create_project", headers=self.headers, json=body)
-            self.assertEqual(response.status_code, 200)
-            response = self.http.post("/api/hardware/hw-1/allocations/remote-only", headers=self.headers,
-                json={"orgId": "DAL", "quantity": 10, "expected_version": 3, "reason": "Initial allocation"})
-            self.assertEqual(response.status_code, 200)
-            response = self.http.post("/api/listAllocations", headers=self.headers, json={"projectId": "remote-only"})
-            self.assertEqual(response.json["items"][0]["quantity"], 10)
-            mongo.__getitem__.assert_not_called()
-        self.assertEqual(upstream.call_args_list[0].args, ("POST", "https://projects.test/projects/create_project"))
-        self.assertEqual(upstream.call_args_list[1].kwargs["params"], {"orgId": "DAL"})
+        response = self.http.post("/api/projects-service/projects/create_project",
+                                 headers=self.headers, json=body)
+        self.assertEqual(response.status_code, 200)
+        response = self.http.post("/api/hardware/hw-1/allocations/remote-only", headers=self.headers,
+                                 json={"quantity": 10, "expected_version": 3, "reason": "Initial allocation"})
+        self.assertEqual(response.status_code, 200)
+        response = self.http.post("/api/listAllocations", headers=self.headers,
+                                 json={"projectId": "remote-only"})
+        self.assertEqual(response.json["items"][0]["quantity"], 10)
+        project = self.projects.records[("DAL", "remote-only")]
+        self.assertEqual(project.creator_id, "user-1")
         self.assertEqual([call[0] for call in self.service.calls], ["AllocateHardware", "ListAllocations"])
         self.assertEqual(self.service.calls[0][1].project_id, "remote-only")
 

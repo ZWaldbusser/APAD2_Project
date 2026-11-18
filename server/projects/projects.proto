@@ -1,5 +1,6 @@
 // projects.proto: gRPC contract for the Projects microservice (APAD Projects group)
-// Draft v0.1, 5 November 2026. Mirrors API contract v1.4.
+// Draft v0.2, 11 November 2026. Mirrors API contract v1.4, plus the frontend team's
+// requests: project_desc required, user_id search filter, joined_users in search results.
 //
 // Conventions
 // - Field names are snake_case. In JSON (Postman, grpcurl) they appear as camelCase:
@@ -61,7 +62,7 @@ message CreateProjectRequest {
   string org_id = 1;        // required: "AUS", "DAL" or "TEX"
   string project_id = 2;    // required, typed by the creator
   string project_name = 3;  // required
-  string project_desc = 4;  // optional, defaults to ""
+  string project_desc = 4;  // required
   string creator_id = 5;    // required; added to joined_users
   int64 budget = 6;         // required, >= 0
   repeated HardwareItem hardware_list = 7;  // optional
@@ -86,17 +87,19 @@ message MembershipResponse {}
 
 // ============================================================ SearchProjects
 
-// Both filters are optional; unset or blank filters are ignored and the rest are
+// All filters are optional; unset or blank filters are ignored and the rest are
 // combined with AND. Send an empty request to list every project.
 message SearchProjectsRequest {
   optional string org_id = 1;
   optional string project_id = 2;
+  optional string user_id = 3;  // only projects this user has joined
 }
 
 message ProjectSummary {
   string project_id = 1;
   string project_name = 2;
   string org_id = 3;
+  repeated string joined_users = 4;  // user IDs; the creator is always first
 }
 
 // An empty result is OK with an empty list, not NOT_FOUND.

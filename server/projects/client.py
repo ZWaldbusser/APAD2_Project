@@ -109,6 +109,7 @@ def _project_summary(p):
         "projectId": p.project_id,
         "projectName": p.project_name,
         "orgId": p.org_id,
+        "joined_users": list(p.joined_users),
     }
 
 
@@ -194,7 +195,13 @@ def search_projects(data):
         req.org_id = data["orgId"]
     if data.get("projectId"):
         req.project_id = data["projectId"]
+    if data.get("userId"):
+        req.user_id = data["userId"]
     resp = call("SearchProjects", req)
+    if data.get("orgId") and any(p.org_id != data["orgId"] for p in resp.project_list):
+        raise ProjectsServiceError("Project service returned an unexpected agency", 502)
+    if data.get("userId") and any(data["userId"] not in p.joined_users for p in resp.project_list):
+        raise ProjectsServiceError("Project membership results could not be verified", 502)
     return 200, {"projectList": [_project_summary(p) for p in resp.project_list]}
 
 
@@ -202,6 +209,8 @@ def get_project(project_id, org_id):
     resp = call("GetProject", messages.GetProjectRequest(
         project_id=project_id, org_id=org_id,
     ))
+    if resp.project_info.org_id != org_id or resp.project_info.project_id != project_id:
+        raise ProjectsServiceError("Project context could not be verified", 502)
     return 200, {"projectInfo": _project(resp.project_info)}
 
 
@@ -267,3 +276,19 @@ def query_project(project_id, org_id=None):
             return projects[0] if projects else None
         except ProjectsServiceError:
             raise
+
+
+def query_hardware_project(project_id, org_id):
+    """Bare Hardware IDs are unsafe when the Projects ID exists in two agencies."""
+    project = query_project(project_id, org_id)
+    if project is None:
+        return None
+    if project.get("orgId") != org_id or project.get("projectId") != project_id:
+        raise ProjectsServiceError("Project context could not be verified", 503)
+    _, payload = search_projects({"projectId": project_id})
+    matches = payload["projectList"]
+    if len(matches) != 1 or matches[0]["orgId"] != org_id:
+        raise ProjectsServiceError(
+            "Equipment is unavailable for this project until its agency mapping is resolved", 409,
+        )
+    return project

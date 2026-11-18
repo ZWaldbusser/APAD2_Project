@@ -9,12 +9,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from projects.client import ProjectsServiceError, query_project as _query_project
+from projects.client import ProjectsServiceError, query_hardware_project as _query_project
 from routes.projects import create_blueprint as create_projects_blueprint
 import hardwareDatabase as hardware_db
 from hardware.client import HardwareServiceError
 from routes.users import create_blueprint as create_users_blueprint
 from users.client import UsersServiceError, validate_access_token
+from request_scope import agency_data, json_object, reject, require_text
 
 from functools import wraps
 
@@ -52,6 +53,10 @@ def token_required(f):
             if error.status_code == 401:
                 return jsonify({"error": "Invalid or expired token"}), 401
             raise  # service unavailable etc. -> handled as 503, never allowed through
+        if not request.user_id:
+            return jsonify({"error": "Account identity is unavailable"}), 401
+        if request.agency_code not in {"AUS", "DAL", "TEX"}:
+            return jsonify({"error": "Account has no supported agency"}), 403
         return f(*args, **kwargs)
     return decorated
 
@@ -101,14 +106,15 @@ def get_hardware():
 @app.route("/api/hardware/checkout", methods=["POST"])
 @token_required
 def checkout_hardware():
-    data = request.get_json()
+    data = agency_data(json_object())
 
     if not data or "name" not in data or "quantity" not in data or "projectId" not in data:
         return jsonify({"error": "name, quantity, and projectId are required"}), 400
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    if not _query_project(data["projectId"], data.get("orgId")):
+    require_text(data, "projectId", "name")
+    if not _query_project(data["projectId"], request.agency_code):
         return jsonify({"error": "Project not found"}), 404
 
     success, message = hardware_db.checkout_hardware(
@@ -125,14 +131,15 @@ def checkout_hardware():
 @app.route("/api/hardware/checkin", methods=["POST"])
 @token_required
 def checkin_hardware():
-    data = request.get_json()
+    data = agency_data(json_object())
 
     if not data or "name" not in data or "quantity" not in data or "projectId" not in data:
         return jsonify({"error": "name, quantity, and projectId are required"}), 400
 
     if type(data["quantity"]) is not int or data["quantity"] <= 0:
         return jsonify({"error": "quantity must be a positive integer"}), 400
-    project = _query_project(data["projectId"], data.get("orgId"))
+    require_text(data, "projectId", "name")
+    project = _query_project(data["projectId"], request.agency_code)
     if not project:
         return jsonify({"error": "Project not found"}), 404
 
@@ -150,29 +157,29 @@ def checkin_hardware():
 @app.route("/api/listAllocations", methods=["POST"])
 @token_required
 def get_allocations():
-    try:
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "Allocation list request body is required"}), 400
-        status, payload = hardware_db.get_allocations(params=data)
-        return jsonify(payload), status
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 503
+    data = agency_data(json_object())
+    project_id = data.get("projectId") or data.get("project_id")
+    if not isinstance(project_id, str) or not project_id.strip():
+        reject("Project ID is required")
+    if not _query_project(project_id, request.agency_code):
+        reject("Project not found", 404)
+    data["projectId"] = project_id
+    data["project_id"] = project_id
+    status, payload = hardware_db.get_allocations(params=data)
+    return jsonify(payload), status
 
 
 @app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["POST"])
 @token_required
 def set_allocation(hardware_id, project_id):
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "Allocation request body is required"}), 400
+    data = agency_data(json_object())
     if type(data.get("quantity")) is not int or not 0 <= data["quantity"] <= 1000000:
         return jsonify({"error": "quantity must be an integer between 0 and 1000000"}), 400
     if type(data.get("expected_version")) is not int or not 1 <= data["expected_version"] <= 1000000:
         return jsonify({"error": "expected_version must be an integer between 1 and 1000000"}), 400
     if not isinstance(data.get("reason"), str) or not 3 <= len(data["reason"]) <= 1000:
         return jsonify({"error": "reason must be between 3 and 1000 characters"}), 400
-    if not _query_project(project_id, data.get("orgId")):
+    if not _query_project(project_id, request.agency_code):
         return jsonify({"error": "Project not found"}), 404
     status, payload = hardware_db.set_allocation(hardware_id, project_id, {
         "expected_version": data["expected_version"],

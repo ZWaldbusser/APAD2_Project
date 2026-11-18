@@ -1,13 +1,16 @@
 # Hardware rental project
 
 React frontend with Flask adapters for the Users/MFA gRPC service,
-the Projects REST API, and the Hardware gRPC API.
+the Projects gRPC API, and the Hardware gRPC API.
 
 ## Run locally
 
-1. Copy `.env.example` to `.env`. Confirm `PROJECTS_API_BASE_URL`,
+1. Create a private root `.env`. Confirm `PROJECTS_GRPC_TARGET`,
    `USERS_GRPC_TARGET`, `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`,
-   and the Hardware team identity. Obtain missing provider settings from their owners.
+   and `HARDWARE_API_TEAM` with their owners. Projects requires an explicit target;
+   Users retains its documented default. Hardware host/key must be supplied privately.
+   Keep all provider credentials server-side without a `VITE_` prefix. The repository
+   does not currently include an `.env.example`; never commit your `.env`.
 2. Install dependencies: `npm install`, `npm install --prefix client`, and
    `python -m pip install -r server/requirements.txt`.
 3. Run `npm run dev` from the repository root.
@@ -28,11 +31,13 @@ or hardware calls and does not supply verified agency/inventory figures.
 
 | Browser API (Flask) | Upstream contract | Configuration |
 | --- | --- | --- |
-| `/api/users-service/*` | Users/MFA gRPC | `USERS_GRPC_TARGET` (documented default in the template) |
-| `/api/projects-service/*` | Projects REST v1.4 | `PROJECTS_API_BASE_URL` |
+| `/api/users-service/*` | Users/MFA gRPC | `USERS_GRPC_TARGET` (default in `server/users/client.py`) |
+| `/api/projects-service/*` | Projects gRPC, supplied proto v0.2 | `PROJECTS_GRPC_TARGET` |
 | POST `/api/hardware`, `/api/listAllocations` and existing hardware write routes | Hardware gRPC | `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`, `HARDWARE_API_TEAM` |
 
-The Projects URL comes from the tracked Projects Team API Contract v1.4.
+The active Projects contract is `server/projects/projects.proto` v0.2.
+The older tracked Projects v1.4 document and `server/services/projects.py` are
+legacy references; the running Flask adapter uses `server/projects/client.py`.
 Hardware's active transport is documented in `server/hardware/hardware.proto`,
 `server/hardware/hardware_openapi.yaml` and the gRPC adapter. The root `hardware.yaml`
 describes a different REST/session interface; it is not the browser's current transport.
@@ -48,8 +53,10 @@ Endpoint contracts do not prove credentials, reachability or end-to-end acceptan
 - `server/app.py`: Flask entry point, users, authentication, and hardware routes.
 - `server/routes/projects.py`: authenticated Projects API routes under
   `/api/projects-service`, separate from React's `/projects/...` navigation.
-- `server/services/projects.py`: server-to-server REST transport using
-  `PROJECTS_API_BASE_URL`; forwards API status codes and JSON bodies.
+- `server/projects/client.py`: Projects gRPC transport using `PROJECTS_GRPC_TARGET`;
+  maps camelCase browser requests into protobuf messages and back to JSON.
+- `server/projects/projects.proto`: supplied v0.2 schema and generated bindings.
+  Search supports optional `userId` and returns `joined_users` in each summary.
 - `server/hardwareDatabase.py`: hardware application operations and response mapping.
 - `server/hardware/client.py`: working gRPC transport and checkout lookup logic.
 - `server/hardware/hardware.proto` and generated bindings: hardware wire contract.
@@ -81,12 +88,34 @@ returning units. An excessive return is rejected before any writes. A return acr
 multiple checkout records uses multiple RPCs; if a later RPC fails, the client
 reloads the allocations to show earlier completed returns.
 
-Agency is carried from project creation/dashboard into hardware writes for remote
-project validation. Hardware `project_id` continues to use the existing plain
-project ID. The Projects contract allows identical IDs across agencies, while the
-hardware contract has no agency field: use globally unique project IDs until the
-teams agree on a shared namespaced identifier (the contract proposes
-`orgId:projectId`). Changing that convention requires migrating existing allocations.
+## Trusted identity and agency
+
+Protected requests validate the Users access token. CreateProject's creator ID,
+JoinProject/LeaveProject's acting user ID, and an optional membership-search filter
+come from that verified identity; browser actor values cannot select another user.
+The temporary owner-approved policy restricts project operations to the verified
+agency. Omitted agency context is filled server-side; a foreign `orgId` or `org_id`
+is rejected with HTTP 403 before contacting Projects or Hardware. The creation and
+join forms show a fixed account agency. Unfiltered discovery still lists agency
+projects; the My Projects UI is separate follow-up work.
+
+Hardware allocations, checkout and returns first verify the project in the caller's
+agency. Allocation reads require a project ID. Because Hardware still stores only
+plain project IDs, known cross-agency duplicate IDs are refused with HTTP 409 before
+a Hardware call. This is an interim ambiguity check, not a namespacing migration or
+an atomic cross-service isolation guarantee. Agree a mapping and existing-record
+migration with the service owners before supporting those IDs. Existing equipment
+eligibility and allocation-writer ownership are not changed by this repair.
+
+## Projects gRPC configuration
+
+`PROJECTS_GRPC_TARGET` is a required host/port or service URL without a path. The supplied
+service currently uses plaintext HTTP/2; a bare host/port selects that transport.
+Use the target supplied by Projects if its deployment address changes. The Flask
+adapter validates the user's token and agency because Projects itself does not
+authenticate the caller. `PROJECTS_API_BASE_URL` is no longer used by the app.
+Read-only RPCs may retry transient unavailability within their deadline. Create,
+join and leave are not automatically retried.
 
 ## Hardware gRPC configuration
 
@@ -96,7 +125,8 @@ teams agree on a shared namespaced identifier (the contract proposes
 authorization metadata and stay on the server. All hardware calls use gRPC;
 `HARDWARE_API_BASE_URL` and old browser proxy URLs are not used.
 
-`HARDWARE_API_TIMEOUT_SECONDS` and `PROJECTS_API_TIMEOUT_SECONDS` default to 10.
+`HARDWARE_API_TIMEOUT_SECONDS` defaults to 10 seconds;
+`PROJECTS_API_TIMEOUT_SECONDS` defaults to 60 seconds.
 Hardware mutations have unique request IDs; a transient `UNAVAILABLE` retry reuses
 the same ID within the original deadline. Version conflicts return HTTP 409.
 Project mutations are not automatically retried.
@@ -105,7 +135,7 @@ Regenerate bindings after changing the proto:
 
 ```powershell
 python -m pip install -r server/requirements-dev.txt
-python -m grpc_tools.protoc -I server --python_out=server --grpc_python_out=server server/hardware/hardware.proto
+python -m grpc_tools.protoc -I server --python_out=server --grpc_python_out=server server/hardware/hardware.proto server/projects/projects.proto
 ```
 
 ## Verification
@@ -116,8 +146,9 @@ npm run build --prefix client
 npm run lint --prefix client
 ```
 
-Backend tests use an in-process gRPC server and mocked Projects REST responses;
-they do not create live projects or reservations.
+Backend tests use loopback Users/Projects/Hardware gRPC providers and isolated
+external-boundary responses. They exercise real protobuf serialization without
+creating live accounts, projects or reservations.
 
 ## Heroku deployment
 

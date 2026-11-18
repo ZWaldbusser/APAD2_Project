@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from projects import projects_pb2 as projects__pb2
+from projects import projects_pb2 as projects_dot_projects__pb2
 
 GRPC_GENERATED_VERSION = '1.85.1'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in projects_pb2_grpc.py depends on'
+        + ' but the generated code in projects/projects_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -36,43 +36,43 @@ class ProjectsServiceStub:
         """
         self.CreateProject = channel.unary_unary(
                 '/projects.v1.ProjectsService/CreateProject',
-                request_serializer=projects__pb2.CreateProjectRequest.SerializeToString,
-                response_deserializer=projects__pb2.CreateProjectResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.CreateProjectRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.CreateProjectResponse.FromString,
                 _registered_method=True)
         self.JoinProject = channel.unary_unary(
                 '/projects.v1.ProjectsService/JoinProject',
-                request_serializer=projects__pb2.MembershipRequest.SerializeToString,
-                response_deserializer=projects__pb2.MembershipResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.MembershipRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.MembershipResponse.FromString,
                 _registered_method=True)
         self.LeaveProject = channel.unary_unary(
                 '/projects.v1.ProjectsService/LeaveProject',
-                request_serializer=projects__pb2.MembershipRequest.SerializeToString,
-                response_deserializer=projects__pb2.MembershipResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.MembershipRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.MembershipResponse.FromString,
                 _registered_method=True)
         self.SearchProjects = channel.unary_unary(
                 '/projects.v1.ProjectsService/SearchProjects',
-                request_serializer=projects__pb2.SearchProjectsRequest.SerializeToString,
-                response_deserializer=projects__pb2.SearchProjectsResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.SearchProjectsRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.SearchProjectsResponse.FromString,
                 _registered_method=True)
         self.GetProject = channel.unary_unary(
                 '/projects.v1.ProjectsService/GetProject',
-                request_serializer=projects__pb2.GetProjectRequest.SerializeToString,
-                response_deserializer=projects__pb2.GetProjectResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.GetProjectRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.GetProjectResponse.FromString,
                 _registered_method=True)
         self.GetUnitPrice = channel.unary_unary(
                 '/projects.v1.ProjectsService/GetUnitPrice',
-                request_serializer=projects__pb2.GetUnitPriceRequest.SerializeToString,
-                response_deserializer=projects__pb2.GetUnitPriceResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.GetUnitPriceRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.GetUnitPriceResponse.FromString,
                 _registered_method=True)
         self.GetDepartmentSpend = channel.unary_unary(
                 '/projects.v1.ProjectsService/GetDepartmentSpend',
-                request_serializer=projects__pb2.GetDepartmentSpendRequest.SerializeToString,
-                response_deserializer=projects__pb2.GetDepartmentSpendResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.GetDepartmentSpendRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.GetDepartmentSpendResponse.FromString,
                 _registered_method=True)
         self.GetBudgetContext = channel.unary_unary(
                 '/projects.v1.ProjectsService/GetBudgetContext',
-                request_serializer=projects__pb2.GetBudgetContextRequest.SerializeToString,
-                response_deserializer=projects__pb2.GetBudgetContextResponse.FromString,
+                request_serializer=projects_dot_projects__pb2.GetBudgetContextRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.GetBudgetContextResponse.FromString,
                 _registered_method=True)
 
 
@@ -134,43 +134,43 @@ def add_ProjectsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'CreateProject': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateProject,
-                    request_deserializer=projects__pb2.CreateProjectRequest.FromString,
-                    response_serializer=projects__pb2.CreateProjectResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.CreateProjectRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.CreateProjectResponse.SerializeToString,
             ),
             'JoinProject': grpc.unary_unary_rpc_method_handler(
                     servicer.JoinProject,
-                    request_deserializer=projects__pb2.MembershipRequest.FromString,
-                    response_serializer=projects__pb2.MembershipResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.MembershipRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.MembershipResponse.SerializeToString,
             ),
             'LeaveProject': grpc.unary_unary_rpc_method_handler(
                     servicer.LeaveProject,
-                    request_deserializer=projects__pb2.MembershipRequest.FromString,
-                    response_serializer=projects__pb2.MembershipResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.MembershipRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.MembershipResponse.SerializeToString,
             ),
             'SearchProjects': grpc.unary_unary_rpc_method_handler(
                     servicer.SearchProjects,
-                    request_deserializer=projects__pb2.SearchProjectsRequest.FromString,
-                    response_serializer=projects__pb2.SearchProjectsResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.SearchProjectsRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.SearchProjectsResponse.SerializeToString,
             ),
             'GetProject': grpc.unary_unary_rpc_method_handler(
                     servicer.GetProject,
-                    request_deserializer=projects__pb2.GetProjectRequest.FromString,
-                    response_serializer=projects__pb2.GetProjectResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.GetProjectRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.GetProjectResponse.SerializeToString,
             ),
             'GetUnitPrice': grpc.unary_unary_rpc_method_handler(
                     servicer.GetUnitPrice,
-                    request_deserializer=projects__pb2.GetUnitPriceRequest.FromString,
-                    response_serializer=projects__pb2.GetUnitPriceResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.GetUnitPriceRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.GetUnitPriceResponse.SerializeToString,
             ),
             'GetDepartmentSpend': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDepartmentSpend,
-                    request_deserializer=projects__pb2.GetDepartmentSpendRequest.FromString,
-                    response_serializer=projects__pb2.GetDepartmentSpendResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.GetDepartmentSpendRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.GetDepartmentSpendResponse.SerializeToString,
             ),
             'GetBudgetContext': grpc.unary_unary_rpc_method_handler(
                     servicer.GetBudgetContext,
-                    request_deserializer=projects__pb2.GetBudgetContextRequest.FromString,
-                    response_serializer=projects__pb2.GetBudgetContextResponse.SerializeToString,
+                    request_deserializer=projects_dot_projects__pb2.GetBudgetContextRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.GetBudgetContextResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -198,8 +198,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/CreateProject',
-            projects__pb2.CreateProjectRequest.SerializeToString,
-            projects__pb2.CreateProjectResponse.FromString,
+            projects_dot_projects__pb2.CreateProjectRequest.SerializeToString,
+            projects_dot_projects__pb2.CreateProjectResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -225,8 +225,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/JoinProject',
-            projects__pb2.MembershipRequest.SerializeToString,
-            projects__pb2.MembershipResponse.FromString,
+            projects_dot_projects__pb2.MembershipRequest.SerializeToString,
+            projects_dot_projects__pb2.MembershipResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -252,8 +252,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/LeaveProject',
-            projects__pb2.MembershipRequest.SerializeToString,
-            projects__pb2.MembershipResponse.FromString,
+            projects_dot_projects__pb2.MembershipRequest.SerializeToString,
+            projects_dot_projects__pb2.MembershipResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -279,8 +279,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/SearchProjects',
-            projects__pb2.SearchProjectsRequest.SerializeToString,
-            projects__pb2.SearchProjectsResponse.FromString,
+            projects_dot_projects__pb2.SearchProjectsRequest.SerializeToString,
+            projects_dot_projects__pb2.SearchProjectsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -306,8 +306,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/GetProject',
-            projects__pb2.GetProjectRequest.SerializeToString,
-            projects__pb2.GetProjectResponse.FromString,
+            projects_dot_projects__pb2.GetProjectRequest.SerializeToString,
+            projects_dot_projects__pb2.GetProjectResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -333,8 +333,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/GetUnitPrice',
-            projects__pb2.GetUnitPriceRequest.SerializeToString,
-            projects__pb2.GetUnitPriceResponse.FromString,
+            projects_dot_projects__pb2.GetUnitPriceRequest.SerializeToString,
+            projects_dot_projects__pb2.GetUnitPriceResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -360,8 +360,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/GetDepartmentSpend',
-            projects__pb2.GetDepartmentSpendRequest.SerializeToString,
-            projects__pb2.GetDepartmentSpendResponse.FromString,
+            projects_dot_projects__pb2.GetDepartmentSpendRequest.SerializeToString,
+            projects_dot_projects__pb2.GetDepartmentSpendResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -387,8 +387,8 @@ class ProjectsService:
             request,
             target,
             '/projects.v1.ProjectsService/GetBudgetContext',
-            projects__pb2.GetBudgetContextRequest.SerializeToString,
-            projects__pb2.GetBudgetContextResponse.FromString,
+            projects_dot_projects__pb2.GetBudgetContextRequest.SerializeToString,
+            projects_dot_projects__pb2.GetBudgetContextResponse.FromString,
             options,
             channel_credentials,
             insecure,

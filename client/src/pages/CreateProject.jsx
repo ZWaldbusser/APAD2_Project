@@ -28,7 +28,7 @@ function fieldError(field, value) {
   if (field === "projectName" && !value.trim()) return "Enter a project name.";
   if (field === "projectDesc" && !value.trim())
     return "Describe the project's purpose.";
-  // Preserve current whole-dollar behavior until partner precision is confirmed.
+  // The supplied Projects contract defines nonnegative whole-dollar budgets.
   if (
     field === "budget" &&
     (value === "" || !Number.isInteger(Number(value)) || Number(value) < 0)
@@ -349,17 +349,10 @@ function CreationForm({ profile }) {
                 name="orgId"
                 label="Agency"
                 required
-                kind="select"
                 value={values.orgId}
-                onChange={change("orgId")}
-                hint="Choose the agency for this project."
-              >
-                {Object.entries(agencyNames).map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name} ({id})
-                  </option>
-                ))}
-              </Field>
+                readOnly
+                hint={`${agencyNames[profile.agencyCode]} · from your verified account.`}
+              />
               <Field
                 name="projectId"
                 label="Project ID"

@@ -48,6 +48,27 @@ async function fillDetails(user) {
   );
 }
 
+test("creation displays the verified agency as a fixed field", async () => {
+  render(<App />);
+  const agency = await screen.findByLabelText("Agency");
+  expect(agency).toHaveValue("DAL");
+  expect(agency).toHaveAttribute("readonly");
+  expect(screen.queryByRole("combobox", { name: "Agency" })).not.toBeInTheDocument();
+});
+
+test("the existing join form uses the account agency and canonical string ID", async () => {
+  const user = userEvent.setup();
+  window.history.replaceState({}, "", "/joinproject");
+  render(<App />);
+  expect(await screen.findByLabelText("Agency")).toHaveValue("DAL");
+  expect(screen.getByLabelText("Agency")).toHaveAttribute("readonly");
+  await user.type(screen.getByPlaceholderText("Enter project ID"), "CIVIC-26");
+  await user.click(screen.getByRole("button", { name: "Join Project" }));
+  expect(request).toHaveBeenCalledWith("projects", "/projects/join_project", {
+    method: "POST", body: { orgId: "DAL", projectId: "CIVIC-26", userId: "7" },
+  });
+});
+
 test("creation without hardware uses the account agency and canonical ID and confirms the created project", async () => {
   const user = userEvent.setup();
   render(<App />);
