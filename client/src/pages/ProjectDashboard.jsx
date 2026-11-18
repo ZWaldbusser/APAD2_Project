@@ -245,7 +245,9 @@ function AgencyProjects({ agency, userId }) {
 
 export default function ProjectDashboard() {
   const profile = useWorkspace();
+  const location = useLocation();
   const agency = profile.value?.agencyCode;
+  const joinPath = `/joinproject?${new URLSearchParams({ returnTo: `/projects${location.search}` })}`;
   return (
     <main className="workspace-page">
       <div className="workspace-page-heading">
@@ -255,7 +257,7 @@ export default function ProjectDashboard() {
           <p>Find your team’s work. Keep public resources moving.</p>
         </div>
         <div className="workspace-actions">
-          <Link className="workspace-button secondary" to="/joinproject">
+          <Link className="workspace-button secondary" to={joinPath}>
             Join project
           </Link>
           <Link className="workspace-button" to="/createproject">

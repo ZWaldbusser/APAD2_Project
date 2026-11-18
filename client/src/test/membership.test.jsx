@@ -97,6 +97,40 @@ test("discovery keeps the search and offers a contextual join without losing equ
   ).toHaveAttribute("href", "/projects/P2/resources?orgId=AUS");
 });
 
+test.each([
+  ["agency", "Field", "Cancel"],
+  ["agency", "Field & resources", "← Back to projects"],
+  ["mine", "Library", "Cancel"],
+])(
+  "header Join project returns to the same %s view and search %s via %s",
+  async (view, search, exit) => {
+    const user = userEvent.setup();
+    window.history.replaceState(
+      {},
+      "",
+      `/projects?${new URLSearchParams({ view, q: search })}`,
+    );
+    render(<App />);
+    expect(await screen.findByRole("searchbox")).toHaveValue(search);
+    await user.click(
+      screen.getByRole("link", { name: "Join project", exact: true }),
+    );
+    await screen.findByRole("button", { name: "Find project" });
+    await user.click(screen.getByRole("link", { name: exit, exact: true }));
+    expect(await screen.findByRole("searchbox")).toHaveValue(search);
+    expect(new URLSearchParams(window.location.search).get("view")).toBe(view);
+    expect(
+      screen.getByRole("link", {
+        name: view === "agency" ? "Discover projects" : "My projects",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      request.mock.calls.some(([, path]) => path === "/projects/join_project"),
+    ).toBe(false);
+  },
+);
+
 test("canceling a contextual join review sends no write and restores focus", async () => {
   const user = userEvent.setup();
   window.history.replaceState({}, "", "/joinproject?projectId=P2&orgId=AUS");
