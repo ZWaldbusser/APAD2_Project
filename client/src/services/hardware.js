@@ -15,7 +15,13 @@ export async function responseData(res) {
   const data = await res.json();
   if (!res.ok) {
     const message = data.error || data.detail || data.message;
-    throw new Error(typeof message === "string" ? message : `Hardware request failed (${res.status})`);
+    const error = new Error(
+      typeof message === "string"
+        ? message
+        : `Hardware request failed (${res.status})`,
+    );
+    error.status = res.status;
+    throw error;
   }
   return data;
 }
@@ -34,11 +40,40 @@ export const getAllHardware = () => allPages(listHardware);
 export const getProjectAllocations = (projectId) =>
   allPages((params) => listAllocations(projectId, params));
 
-export const setAllocation = ({ hardwareId, projectId, expectedVersion, quantity, reason, orgId }) =>
-  request("hardware", `/api/hardware/${encodeURIComponent(hardwareId)}/allocations/${encodeURIComponent(projectId)}`, {
-    method: "POST",
-    body: { expected_version: expectedVersion, reason, quantity, orgId },
-  });
+export const getOutstandingCheckouts = (projectId, orgId) =>
+  allPages((params) =>
+    request("hardware", "/api/hardware/checkouts", {
+      method: "POST",
+      body: { ...params, projectId, orgId },
+    }),
+  );
+
+export const getAvailability = (hardwareId, projectId, orgId) =>
+  request(
+    "hardware",
+    `/api/hardware/${encodeURIComponent(hardwareId)}/availability`,
+    {
+      method: "POST",
+      body: { projectId, orgId },
+    },
+  ).then(responseData);
+
+export const setAllocation = ({
+  hardwareId,
+  projectId,
+  expectedVersion,
+  quantity,
+  reason,
+  orgId,
+}) =>
+  request(
+    "hardware",
+    `/api/hardware/${encodeURIComponent(hardwareId)}/allocations/${encodeURIComponent(projectId)}`,
+    {
+      method: "POST",
+      body: { expected_version: expectedVersion, reason, quantity, orgId },
+    },
+  );
 
 export const checkout = ({ name, hardwareId, quantity, projectId, orgId }) =>
   request("hardware", "/api/hardware/checkout", {
@@ -54,18 +89,30 @@ export const checkin = ({ name, hardwareId, quantity, projectId, orgId }) =>
 
 // Retry absolute allocations against current inventory versions. Successful writes
 // are reported immediately so a partial failure never recreates the project.
-export async function allocateProjectHardware({ projectId, orgId, items, onAllocated }) {
+export async function allocateProjectHardware({
+  projectId,
+  orgId,
+  items,
+  onAllocated,
+}) {
   if (!items.length) return [];
   const catalog = await getAllHardware();
   const failures = [];
   for (const item of items) {
     try {
-      const current = catalog.find((hw) => (hw.id || hw._id) === item.hardwareId);
+      const current = catalog.find(
+        (hw) => (hw.id || hw._id) === item.hardwareId,
+      );
       if (!current) throw new Error("Hardware is no longer available");
-      await responseData(await setAllocation({
-        ...item, projectId, orgId, expectedVersion: current.version,
-        reason: `Initial allocation for project ${projectId}`,
-      }));
+      await responseData(
+        await setAllocation({
+          ...item,
+          projectId,
+          orgId,
+          expectedVersion: current.version,
+          reason: `Initial allocation for project ${projectId}`,
+        }),
+      );
       onAllocated(item.hardwareId);
     } catch (error) {
       failures.push(`${item.name}: ${error.message}`);
@@ -76,12 +123,14 @@ export async function allocateProjectHardware({ projectId, orgId, items, onAlloc
 
 export async function getProjectHardware(projectId) {
   const [allocations, catalog] = await Promise.all([
-    getProjectAllocations(projectId), getAllHardware(),
+    getProjectAllocations(projectId),
+    getAllHardware(),
   ]);
   const byId = new Map(catalog.map((item) => [item.id || item._id, item]));
   return allocations.map((allocation) => ({
     ...allocation,
     name: byId.get(allocation.hardware_id)?.name || allocation.hardware_id,
+    stock: byId.get(allocation.hardware_id) || null,
     allocated: allocation.quantity,
     checkedOut: allocation.out,
     available: Math.max(allocation.quantity - allocation.out, 0),

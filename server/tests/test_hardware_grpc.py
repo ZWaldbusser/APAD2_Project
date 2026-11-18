@@ -28,7 +28,8 @@ class HardwareService(services.HardwareServiceServicer):
         self.failure = None
         self.fail_once = False
         self.pages = {1: messages.ListCheckoutsResponse(items=[messages.Checkout(
-            id="checkout-1", quantity=5, returned=1, version=2,
+            id="checkout-1", hardware_id="hw-1", project_id="project-1", user_id="user-1",
+            quantity=5, returned=1, version=2,
         )], total=1, page=1, size=100)}
 
     def record(self, method, request, context):
@@ -55,6 +56,14 @@ class HardwareService(services.HardwareServiceServicer):
             hardware_id="hw-1", project_id=request.project_id, quantity=10, out=2,
         )], total=1, page=1, size=100)
 
+    def GetAvailability(self, request, context):
+        self.record("GetAvailability", request, context)
+        return messages.AvailabilityResponse(
+            hardware=messages.Hardware(id=request.hardware_id, name="Monitor", total=10, reserved=10, out=10),
+            availability="unavailable", alternative_lookup_status="temporarily_unavailable",
+            alternatives=[messages.VendorAlternative(vendor="Civic supplier", commodity="Displays", unit_price=75.5)],
+        )
+
     def CreateCheckout(self, request, context):
         self.record("CreateCheckout", request, context)
         return messages.Checkout(id="new-checkout", quantity=request.quantity, version=1)
@@ -69,6 +78,42 @@ class HardwareService(services.HardwareServiceServicer):
 
 
 class HardwareGrpcTests(unittest.TestCase):
+    def test_read_adapters_reject_missing_or_unknown_project_before_hardware(self):
+        for path in ("/api/hardware/checkouts", "/api/hardware/hw-1/availability"):
+            for body, status in (({}, 400), ({"projectId": "unknown"}, 404),
+                                 ({"projectId": "project-1", "orgId": "AUS"}, 403)):
+                with self.subTest(path=path, body=body):
+                    response = self.http.post(path, headers=self.headers, json=body)
+                    self.assertEqual(response.status_code, status)
+        self.assertEqual(self.service.calls, [])
+
+    def test_checkout_read_refuses_unexpected_recipient_or_project_data(self):
+        self.service.pages[1].items[0].user_id = "other-user"
+        response = self.http.post("/api/hardware/checkouts", headers=self.headers,
+                                  json={"projectId": "project-1"})
+        self.assertEqual(response.status_code, 502)
+        self.assertNotIn("other-user", str(response.json))
+
+    def test_availability_preserves_optional_procurement_fields_and_lookup_failure(self):
+        response = self.http.post("/api/hardware/hw-1/availability", headers=self.headers,
+                                  json={"projectId": "project-1"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["alternative_lookup_status"], "temporarily_unavailable")
+        alternative = response.json["alternatives"][0]
+        self.assertEqual(alternative["unit_price"], 75.5)
+        self.assertNotIn("quantity", alternative)
+        self.assertEqual(self.service.calls[0][1].hardware_id, "hw-1")
+
+    def test_outstanding_read_uses_verified_user_and_project_context(self):
+        response = self.http.post("/api/hardware/checkouts", headers=self.headers,
+                                  json={"projectId": "project-1", "userId": "other-user"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["items"][0]["outstanding"], 4)
+        method, request, _ = self.service.calls[0]
+        self.assertEqual(method, "ListCheckouts")
+        self.assertEqual((request.user_id, request.project_id, request.outstanding),
+                         ("user-1", "project-1", True))
+
     def setUp(self):
         self.service = HardwareService()
         self.server = grpc.server(ThreadPoolExecutor(max_workers=2))

@@ -127,6 +127,42 @@ an atomic cross-service isolation guarantee. Agree a mapping and existing-record
 migration with the service owners before supporting those IDs. Existing equipment
 eligibility and allocation-writer ownership are not changed by this repair.
 
+## Equipment checkout and returns
+
+Both Manage equipment entry points open the same project equipment page. Cards
+separate project allocation, checked-out units and project-ready units from shared
+pool totals, units not checked out and unallocated stock. Shared availability may
+include another project's reservations and is not the project's checkout limit.
+
+Check out or Return opens the Civic Orange drawer: enter a positive whole quantity,
+review the project/hardware and projected counts, then confirm. Cancel, Back and
+Escape send no write. Confirmation is disabled while pending. Provider counts and
+the signed-in user's outstanding checkouts are read again after success or an
+uncertain failure; a failure never claims success or automatically repeats a write.
+Returns are limited to the caller's outstanding quantity, including all provider
+pages. Partial multi-record returns retain the existing backend behavior.
+
+Two authenticated read mappings reuse the supplied Hardware proto and credentials:
+
+- POST `/api/hardware/checkouts`: requires a project in the verified agency and
+  uses the verified Users ID for `ListCheckouts`, ignoring browser actor IDs. It
+  returns quantity/returned/outstanding records rather than individual assets.
+- POST `/api/hardware/<hardware_id>/availability`: requires the same validated
+  project context and maps `GetAvailability`, including optional vendor fields.
+
+When shared stock is exhausted, the page presents supplied vendor alternatives or
+an explicit unavailable state. Procurement quantities/prices are not current vendor
+stock or an approved-vendor ranking. A failed lookup leaves allocations and other
+supported actions usable. Unavailable outstanding records pause returns without
+pretending the caller has zero outstanding units.
+
+The existing checkout/return writes, idempotency and verified-agency enforcement
+remain in use. The team's equipment-actor policy and permanent project/agency ID
+mapping still need agreement; this frontend does not introduce a membership-only
+or agency-wide eligibility rule. Provider write permissions, real checkout/return
+and out-of-stock vendor delivery require approved live test data. Isolated test
+fixtures do not establish that acceptance.
+
 ## Projects gRPC configuration
 
 `PROJECTS_GRPC_TARGET` is a required host/port or service URL without a path. The supplied
