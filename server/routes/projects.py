@@ -1,6 +1,8 @@
 """Browser routes for the Projects API contract (gRPC transport)."""
 
 from flask import Blueprint, jsonify, request
+from gateway.core import read_through
+from gateway.policy import mappers, validators
 from projects.client import (
     create_project, join_project, leave_project,
     search_projects, get_project, get_unit_price,
@@ -15,7 +17,12 @@ def create_blueprint(token_required):
     @token_required
     def project_detail(project_id):
         org_id = request.args.get("orgId", "")
-        status, payload = get_project(project_id, org_id)
+        status, payload = read_through(
+            "projects", "getProject", org_id, {"projectId": project_id},
+            fetch=lambda: get_project(project_id, org_id)[1],
+            validate=validators.validate_project(org_id),
+            mapper=mappers.map_project_info,
+        )
         return jsonify(payload), status
 
     @routes.route("/projects/create_project", methods=["POST"])
@@ -39,7 +46,13 @@ def create_blueprint(token_required):
     @routes.route("/projects/search_project", methods=["POST"])
     @token_required
     def search():
-        status, payload = search_projects(request.get_json(silent=True) or {})
+        body = request.get_json(silent=True) or {}
+        status, payload = read_through(
+            "projects", "searchProjects", body.get("orgId"), body,
+            fetch=lambda: search_projects(body)[1],
+            validate=validators.validate_project_list,
+            mapper=mappers.map_project_list,
+        )
         return jsonify(payload), status
 
     @routes.route("/get_unit_price", methods=["POST"])

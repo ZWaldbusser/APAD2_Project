@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { agencyNames } from "../projectContext";
 import NotificationInbox from "./NotificationInbox";
+import StaleBanner from "./StaleBanner";
 import "../styles/Workspace.css";
 
 function Icon({ name }) {
@@ -172,6 +173,7 @@ export default function WorkspaceLayout() {
           className="workspace-content"
           tabIndex={-1}
         >
+          <StaleBanner />
           <Outlet />
         </div>
         <footer className="workspace-footer">

@@ -1,4 +1,4 @@
-// Projects service client — matches Projects API v1.4 contract.
+// Projects HTTP client for the Flask-to-gRPC adapter.
 
 import { request } from "./http";
 

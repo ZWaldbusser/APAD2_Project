@@ -4,7 +4,10 @@ import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { request } from "../services/http";
 
-vi.mock("../services/http", () => ({ request: vi.fn() }));
+vi.mock("../services/http", async (importOriginal) => ({
+  ...(await importOriginal()),
+  request: vi.fn(),
+}));
 
 const profile = { id: 7, username: "staff", agencyCode: "DAL" };
 const catalog = [

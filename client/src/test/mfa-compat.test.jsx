@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../App';
 import Swal from 'sweetalert2';
 
-vi.mock('../config', () => ({ USE_VISUALIZATION_MOCKS: false, SERVICE_URLS: { users: '', projects: '', hardware: '', visualization: '' } }));
+vi.mock('../config', () => ({ USE_MOCKS: false, USE_VISUALIZATION_MOCKS: false, SERVICE_URLS: { users: '', projects: '', hardware: '', visualization: '' } }));
 // The third-party alert UI is verified in the browser; keep transport, services,
 // authentication state, routes and workspace real in these contract regressions.
 vi.mock('sweetalert2', () => ({ default: { fire: vi.fn(async () => ({})) } }));

@@ -14,7 +14,7 @@ from pathlib import Path
 import certifi
 import os
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 MONGO_URI = os.getenv("MONGO_URI")
 

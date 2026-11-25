@@ -17,6 +17,21 @@ function handleUnauthorized(res) {
   }
 }
 
+// Data-gateway freshness metadata ({source, stale, service, fetchedAt, ageSeconds}) from the BFF.
+const metaListeners = new Set();
+export function onDataMeta(fn) {
+  metaListeners.add(fn);
+  return () => metaListeners.delete(fn);
+}
+
+function publishMeta(res) {
+  if (!metaListeners.size || !res.headers.get("content-type")?.includes("json")) return;
+  res.clone().json().then(
+    (data) => { if (data && data.meta && typeof data.meta.stale === "boolean") metaListeners.forEach((fn) => fn(data.meta)); },
+    () => {},
+  );
+}
+
 /**
  * @param {"users"|"projects"|"hardware"|"visualization"} service  Service that owns the route
  * @param {string} path                            Route path, e.g. "/api/projects"
@@ -45,5 +60,6 @@ export async function request(service, path, options = {}) {
   );
 
   if (auth && service === "users") handleUnauthorized(res);
+  if (res.ok) publishMeta(res);
   return res;
 }

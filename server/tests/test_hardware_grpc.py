@@ -6,15 +6,17 @@ import sys
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import grpc
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ.setdefault("JWT_SECRET_KEY", "grpc-hardware-test-key")
 
 import app
-import hardwareDatabase as hardware_db
+from support import isolate_routes
+from gateway.routes import hardware as hardware_routes
+from projects import client as projects_api
+from services import hardware as hardware_db
 from hardware import client
 from hardware import hardware_pb2 as messages
 from hardware import hardware_pb2_grpc as services
@@ -50,7 +52,7 @@ class HardwareService(services.HardwareServiceServicer):
     def ListAllocations(self, request, context):
         self.record("ListAllocations", request, context)
         return messages.ListAllocationsResponse(items=[messages.Allocation(
-            hardware_id="hw-1", project_id=request.project_id, quantity=10, out=2,
+            id="allocation-1", hardware_id="hw-1", project_id=request.project_id, quantity=10, out=2,
         )], total=1, page=1, size=100)
 
     def CreateCheckout(self, request, context):
@@ -83,12 +85,11 @@ class HardwareGrpcTests(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         self.http = app.app.test_client()
-        token = app.jwt.encode({"user_id": "user-1"}, app.SECRET_KEY, algorithm="HS256")
-        self.headers = {"Authorization": f"Bearer {token}"}
+        isolate_routes(self)
         self.body = {"name": "Monitor", "hardwareId": "hw-1", "projectId": "project-1", "quantity": 2}
 
     def post(self, action, body=None):
-        with patch.object(app.projects_api, "query_project", return_value={"projectId": "project-1"}):
+        with patch.object(hardware_routes, "_query_project", return_value={"projectId": "project-1"}):
             return self.http.post(f"/api/hardware/{action}", headers=self.headers, json=body or self.body)
 
     def test_checkout_uses_protobuf_auth_and_idempotency(self):
@@ -175,31 +176,20 @@ class HardwareGrpcTests(unittest.TestCase):
             self.assertEqual(self.post("checkout", {**self.body, "quantity": quantity}).status_code, 400)
         self.assertEqual(self.service.calls, [])
 
-    def test_signup_keeps_mongo_and_project_creation_uses_api(self):
-        with patch.object(app.users_db, "create_user", return_value="user-2") as create_user:
-            response = self.http.post("/api/signup", json={"userID": "alice", "password": "test"})
-        self.assertEqual(response.status_code, 201)
-        create_user.assert_called_once_with("alice", "test")
-        body = {"orgId": "AUS", "projectId": "project-1", "projectName": "Project",
-                "creatorId": "alice", "budget": 100, "hardwareList": []}
-        with patch.object(app.projects_api, "call", return_value=(200, {"success": True})) as upstream:
-            response = self.http.post("/api/projects-service/projects/create_project",
-                                      headers=self.headers, json=body)
-        self.assertEqual(response.status_code, 200)
-        upstream.assert_called_once_with("POST", "/projects/create_project", data=body, params={})
-        self.assertEqual(self.service.calls, [])
+    def test_retired_monolith_routes_are_unavailable(self):
+        for path, method in (("/api/signup", "post"), ("/api/forgot_password", "post"),
+                             ("/api/users", "get")):
+            self.assertIn(getattr(self.http, method)(path).status_code, (404, 405))
 
-    def test_create_allocate_and_read_share_remote_project_without_mongo(self):
+    def test_create_allocate_and_read_use_remote_projects(self):
         body = {"orgId": "DAL", "projectId": "remote-only", "projectName": "Remote project",
                 "creatorId": "alice", "budget": 100,
                 "hardwareList": [{"hardwareId": "hw-1", "allocation": 10}]}
-        created = Mock(status_code=200)
-        created.json.return_value = {"success": True}
-        detail = Mock(status_code=200)
-        detail.json.return_value = {"projectInfo": body}
-        with patch.dict(os.environ, {"PROJECTS_API_BASE_URL": "https://projects.test"}), \
-                patch.object(app.projects_api.requests, "request", side_effect=[created, detail]) as upstream, \
-                patch.object(app.db, "db") as mongo:
+        with patch.object(projects_api, "call", side_effect=[
+            projects_api.messages.CreateProjectResponse(),
+            projects_api.messages.GetProjectResponse(project_info=projects_api.messages.Project(
+                org_id="DAL", project_id="remote-only", project_name="Remote project")),
+        ]) as upstream:
             response = self.http.post("/api/projects-service/projects/create_project", headers=self.headers, json=body)
             self.assertEqual(response.status_code, 200)
             response = self.http.post("/api/hardware/hw-1/allocations/remote-only", headers=self.headers,
@@ -207,11 +197,9 @@ class HardwareGrpcTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             response = self.http.post("/api/listAllocations", headers=self.headers, json={"projectId": "remote-only"})
             self.assertEqual(response.json["items"][0]["quantity"], 10)
-            mongo.__getitem__.assert_not_called()
-        self.assertEqual(upstream.call_args_list[0].args, ("POST", "https://projects.test/projects/create_project"))
-        self.assertEqual(upstream.call_args_list[1].kwargs["params"], {"orgId": "DAL"})
+        self.assertEqual([c.args[0] for c in upstream.call_args_list], ["CreateProject", "GetProject"])
+        self.assertEqual(upstream.call_args_list[1].args[1].org_id, "DAL")
         self.assertEqual([call[0] for call in self.service.calls], ["AllocateHardware", "ListAllocations"])
-        self.assertEqual(self.service.calls[0][1].project_id, "remote-only")
 
     def test_endpoint_normalizes_tls_and_local_targets(self):
         self.assertEqual(client._endpoint("https://example.test"), ("example.test:443", True))

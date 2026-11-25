@@ -5,13 +5,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ.setdefault("JWT_SECRET_KEY", "test-key-with-at-least-32-characters")
 import app
-import hardwareDatabase as hardware_db
+from support import isolate_routes
+from services import hardware as hardware_db
 from hardware import hardware_pb2 as messages
 
 
 class HardwareResponseTests(unittest.TestCase):
+    def setUp(self):
+        isolate_routes(self)
+
     def test_inventory_preserves_ids_capacity_and_filters(self):
         result = messages.ListHardwareResponse(items=[messages.Hardware(
             id="hw-1", name="Monitor", total=100, reserved=10, out=5,

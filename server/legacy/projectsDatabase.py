@@ -1,8 +1,7 @@
-"""Legacy MongoDB project helpers; the active app uses services.projects."""
+"""Legacy MongoDB project helpers; the active app uses projects.client."""
 
 # Import necessary libraries and modules
-from db import db as myDB
-import hardwareDatabase
+from .db import db as myDB
 
 '''
 Structure of Project entry:

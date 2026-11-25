@@ -1,1 +1,8 @@
--r server/requirements.txt
+pymongo
+flask
+python-dotenv
+flask-cors
+certifi
+gunicorn
+grpcio>=1.85.1,<2
+protobuf>=7.35.1,<8

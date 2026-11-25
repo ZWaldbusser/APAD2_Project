@@ -55,20 +55,3 @@ export async function getCurrentUser() {
     return null;
   }
 }
-
-// Old monolith routes with no equivalent in the user service. Remove once no page uses them.
-export const signup = (userID, password) =>
-  request("users", "/api/signup", {
-    method: "POST",
-    body: { userID, password },
-    auth: false,
-  });
-
-export const forgotPassword = (userID, password, confirmPassword) =>
-  request("users", "/api/forgot_password", {
-    method: "POST",
-    body: { userID, password, confirmPassword },
-    auth: false,
-  });
-
-export const listUsers = () => request("users", "/api/users");

@@ -1,6 +1,6 @@
 #Handles the MongoDB connection and all operations related to the "users" collection
 
-from db import db
+from .db import db
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from bson import ObjectId
