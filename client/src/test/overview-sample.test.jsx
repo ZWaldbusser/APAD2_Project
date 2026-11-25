@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import Visualization from "../pages/Visualization";
+import Integration from "../pages/Integration";
 
 vi.mock("../config", () => ({
   USE_VISUALIZATION_MOCKS: true,
@@ -11,9 +11,9 @@ afterEach(() => vi.unstubAllGlobals());
 test("the retained Overview sample is explicitly labelled and invents no provider refresh timestamp", async () => {
   const transport = vi.fn();
   vi.stubGlobal("fetch", transport);
-  render(<Visualization />);
+  render(<Integration />);
   expect(await screen.findByText("Example project count")).toBeInTheDocument();
-  expect(screen.getByRole("note")).toHaveTextContent("Sample Overview");
+  expect(screen.getByRole("note")).toHaveTextContent("Sample summary metrics");
   expect(screen.getByRole("note")).toHaveTextContent(
     "not live agency or inventory figures",
   );
