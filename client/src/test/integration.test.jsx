@@ -19,7 +19,7 @@ afterEach(() => {
 test("legacy Visualization opens Integration and ranks vendors even when summary data is unavailable", async () => {
   localStorage.setItem("token", "integration-test");
   window.history.replaceState({}, "", "/visualization");
-  request.mockImplementation(async (service, path) => {
+  request.mockImplementation(async (service, path, options) => {
     if (service === "users") return json({ user: { id: "0007", agencyCode: "AUS" } });
     if (path === "/api/visualization") return json({ error: "Not found" }, 404);
     if (path === "/projects/search_project") {
@@ -29,6 +29,7 @@ test("legacy Visualization opens Integration and ranks vendors even when summary
       ] });
     }
     if (path === "/api/hardware") return json([{ id: "H1", name: "Desktop PC", available: 0 }]);
+    if (path === "/api/integration/vendor-watchlist") return json({ saved: options.method === "POST" });
     if (path === "/api/integration/vendor-rankings") {
       return json({
         projectName: "Library",
@@ -74,10 +75,14 @@ test("legacy Visualization opens Integration and ranks vendors even when summary
           },
         ],
         unpricedVendors: ["Vendor with no comparable price"],
+        savedVendors: ["Over-budget certified supplier"],
         excludedRecordCount: 1,
         procurementTags: [{
           tag: "Environmentally certified",
           vendors: ["Certified supplier", "Over-budget certified supplier"],
+        }, {
+          tag: "Environmentally friendly",
+          vendors: ["Preferred vendor"],
         }],
       });
     }
@@ -116,6 +121,17 @@ test("legacy Visualization opens Integration and ranks vendors even when summary
   expect(preference.closest("div").previousElementSibling).toBe(project.closest("label"));
   const list = within(screen.getByRole("list", { name: "Ranked vendors" }));
   expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Preferred vendor");
+  const watchlist = list.getByRole("button", { name: "Save Certified supplier to watchlist" });
+  expect(watchlist).toHaveTextContent(/^Watchlist$/);
+  const actions = watchlist.closest(".vendor-watchlist-actions");
+  expect(actions).toBe(actions.closest(".vendor-ranked-row").lastElementChild);
+  await user.click(watchlist);
+  expect(request).toHaveBeenCalledWith("hardware", "/api/integration/vendor-watchlist", {
+    method: "POST",
+    body: { vendorName: "Certified supplier" },
+  });
+  expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Certified supplier");
+  expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Saved vendor");
 
   await user.selectOptions(preference, "Environmentally certified");
   const [first, second, third] = list.getAllByRole("listitem");
@@ -127,8 +143,23 @@ test("legacy Visualization opens Integration and ranks vendors even when summary
   expect(screen.getByText("Vendor with no comparable price")).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "Desktop PC (out of stock)" })).toBeInTheDocument();
 
-  await user.selectOptions(preference, "");
+  await user.selectOptions(preference, "Environmentally friendly");
   expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Preferred vendor");
+  expect(list.getAllByRole("listitem")[1]).toHaveTextContent("Saved vendor");
+
+  await user.selectOptions(preference, "");
+  expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Certified supplier");
+  expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Saved vendor");
+
+  const remove = within(actions).getByRole("button", { name: "Remove Certified supplier from watchlist" });
+  expect(remove.previousElementSibling).toHaveTextContent("Saved vendor");
+  await user.click(remove);
+  expect(request).toHaveBeenCalledWith("hardware", "/api/integration/vendor-watchlist", {
+    method: "DELETE",
+    body: { vendorName: "Certified supplier" },
+  });
+  expect(list.getAllByRole("listitem")[0]).toHaveTextContent("Preferred vendor");
+  expect(list.getByRole("button", { name: "Save Certified supplier to watchlist" })).toBeInTheDocument();
   expect(request.mock.calls.filter(([, path]) => path === "/api/integration/vendor-rankings")).toHaveLength(1);
   expect(request).toHaveBeenCalledWith("hardware", "/api/integration/vendor-rankings", {
     method: "POST",

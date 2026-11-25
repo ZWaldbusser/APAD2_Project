@@ -15,6 +15,7 @@ import hardwareDatabase as hardware_db
 from hardware.client import HardwareServiceError
 from routes.users import create_blueprint as create_users_blueprint
 from users.client import UsersServiceError, validate_access_token
+from users.vendor_directory import remove_saved_vendor, save_vendor
 from request_scope import agency_data, json_object, reject, require_text
 from services.vendor_rankings import get_vendor_rankings
 
@@ -58,6 +59,7 @@ def token_required(f):
             return jsonify({"error": "Account identity is unavailable"}), 401
         if request.agency_code not in {"AUS", "DAL", "TEX"}:
             return jsonify({"error": "Account has no supported agency"}), 403
+        request.access_token = token
         return f(*args, **kwargs)
     return decorated
 
@@ -99,8 +101,19 @@ def vendor_rankings():
         reject("Quantity must be a positive whole number up to 2147483647")
     return jsonify(get_vendor_rankings(
         data["projectId"], request.agency_code, request.user_id,
-        data["hardwareId"], quantity,
+        data["hardwareId"], quantity, access_token=request.access_token,
     ))
+
+
+@app.route("/api/integration/vendor-watchlist", methods=["POST", "DELETE"])
+@token_required
+def update_watchlist_vendor():
+    data = agency_data(json_object())
+    require_text(data, "vendorName")
+    saved = request.method == "POST"
+    operation = save_vendor if saved else remove_saved_vendor
+    operation(request.access_token, request.agency_code, data["vendorName"])
+    return jsonify({"saved": saved})
 
 
 # Hardware routes (view hardware, checkout, check-in)

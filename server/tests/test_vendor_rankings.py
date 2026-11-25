@@ -1,7 +1,10 @@
+import os
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import grpc
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -9,10 +12,20 @@ import app
 from hardware import hardware_pb2 as hardware
 from projects import projects_pb2 as projects
 from services import vendor_rankings
+from users import users_pb2 as user_messages, vendor_directory, vendors_pb2
+
+
+class LookupError(grpc.RpcError):
+    def __init__(self, status):
+        self.status = status
+
+    def code(self):
+        return self.status
 
 
 class VendorRankingTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, {"PROJECTS_API_BASE_URL": ""}))
         self.http = app.app.test_client()
         self.auth = self.enterContext(patch.object(
             app, "validate_access_token", return_value=("0007", "AUS"),
@@ -22,6 +35,10 @@ class VendorRankingTests(unittest.TestCase):
         ))
         self.hardware_call = self.enterContext(patch.object(
             vendor_rankings.hardware_client, "call",
+        ))
+        self.watchlist_call = self.enterContext(patch.object(
+            vendor_rankings.users, "call",
+            return_value=user_messages.ListWatchlistResponse(agency_code="AUS"),
         ))
         self.members = ["0007"]
         self.budget = 1000
@@ -67,9 +84,25 @@ class VendorRankingTests(unittest.TestCase):
             if price is not None:
                 record.unit_price = price
 
-        response = self.compare(budget=5000, userId="other")
+        item = {"description": "Desktop PC", "quantity": 10}
+        rest_payload = {
+            "success": True, "orgId": "AUS", "budget": 1000,
+            "items": [{
+                **item, "matchedCategory": "Desktop Computers",
+                "estimatedCost": {"low": 750, "typical": 900, "high": 1200},
+            }],
+        }
+        with patch.dict(os.environ, {"PROJECTS_API_BASE_URL": "https://projects.example"}), patch(
+            "projects.client.projects_rest.call", return_value=(200, rest_payload),
+        ) as budget_call:
+            response = self.compare(budget=5000, userId="other")
+            budget_call.assert_called_once_with("POST", "/get_budget_context", data={
+                "orgId": "AUS", "budget": 1000, "items": [item],
+            })
+        self.assertEqual(self.project_call.call_count, 1)
         self.assertEqual(response.status_code, 200)
         result = response.json
+        self.assertEqual(result["hardwareName"], "Desktop PC")
         self.assertEqual(result["projectBudget"], "1000.00")
         self.assertEqual(result["benchmark"]["estimate"]["typical"], "900.00")
         best, second = result["rankedVendors"]
@@ -85,9 +118,6 @@ class VendorRankingTests(unittest.TestCase):
         self.assertEqual(result["unpricedVendors"], ["No price"])
         self.assertEqual(result["excludedRecordCount"], 1)
         self.assertEqual(result["procurementTags"], [])
-        budget_request = self.project_call.call_args.args[1]
-        self.assertEqual((budget_request.org_id, budget_request.budget), ("AUS", 1000))
-        self.assertEqual(budget_request.items[0].quantity, 10)
         self.assertEqual(self.hardware_call.call_args.args[1].hardware_id, "H1")
 
     def test_uses_server_commodity_prices_without_a_projects_benchmark(self):
@@ -159,10 +189,144 @@ class VendorRankingTests(unittest.TestCase):
         self.assertEqual(result["excludedRecordCount"], 2)
         self.hardware_call.assert_called_once()
 
+    def test_uses_the_verified_token_and_matches_only_unambiguous_saved_vendor_names(self):
+        for name in ("Saved supplier", "Ambiguous supplier", "Saved supplier LLC"):
+            self.availability.alternatives.add(vendor=name, commodity="Desktop PC", unit_price=50)
+        self.watchlist_call.return_value = user_messages.ListWatchlistResponse(
+            agency_code="AUS", items=[
+                user_messages.WatchlistItem(vendor_name=" saved  SUPPLIER ", vendor_id="v-1", agency_code="AUS"),
+                user_messages.WatchlistItem(vendor_name="Ambiguous supplier", vendor_id="v-2", agency_code="AUS"),
+                user_messages.WatchlistItem(vendor_name="ambiguous supplier", vendor_id="v-3", agency_code="AUS"),
+            ],
+        )
+        response = self.compare(accessToken="browser-supplied-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["savedVendors"], ["Saved supplier"])
+        self.assertFalse(response.json["watchlistUnavailable"])
+        self.watchlist_call.assert_called_once_with(
+            "ListWatchlist", user_messages.AccessTokenRequest(access_token="test"),
+        )
+
+    def test_wrong_agency_or_failed_watchlist_keeps_the_cost_ranking(self):
+        self.availability.alternatives.add(vendor="Supplier", commodity="Desktop PC", unit_price=50)
+        for agency in ("DAL", "AUS"):
+            with self.subTest(agency=agency):
+                self.watchlist_call.return_value = user_messages.ListWatchlistResponse(
+                    agency_code=agency, items=[
+                        user_messages.WatchlistItem(vendor_name="Supplier", vendor_id="v-1", agency_code="DAL"),
+                    ],
+                )
+                result = self.compare().json
+                self.assertEqual(result["savedVendors"], [])
+                self.assertTrue(result["watchlistUnavailable"])
+                self.assertEqual(result["rankedVendors"][0]["estimatedTotal"], "500.00")
+
+        self.watchlist_call.side_effect = vendor_rankings.users.UsersServiceError("Unavailable", 503)
+        result = self.compare().json
+        self.assertEqual(result["savedVendors"], [])
+        self.assertTrue(result["watchlistUnavailable"])
+        self.assertEqual(result["rankedVendors"][0]["estimatedTotal"], "500.00")
+
+    def test_save_resolves_the_vendor_id_and_uses_the_authenticated_account(self):
+        resolved = vendors_pb2.Vendor(vendor_id="opaque-id", vendor_name="Example supplier", agency_code="AUS")
+        directory = Mock()
+        directory.ListVendors.side_effect = [
+            LookupError(grpc.StatusCode.UNAVAILABLE),
+            vendors_pb2.ListVendorsResponse(
+                agency_code="AUS", page=1, vendors=[
+                    resolved, vendors_pb2.Vendor(vendor_id="other-id", vendor_name="Example supplier LLC", agency_code="AUS"),
+                ],
+            ),
+        ]
+        self.watchlist_call.return_value = user_messages.AddToWatchlistResponse(
+            item=user_messages.WatchlistItem(
+                vendor_id="opaque-id", vendor_name="Example supplier", agency_code="AUS",
+            ),
+        )
+        with patch.object(vendor_directory, "_stub", return_value=directory):
+            response = self.http.post(
+                "/api/integration/vendor-watchlist", headers={"Authorization": "Bearer test"},
+                json={"vendorName": " Example  SUPPLIER ", "vendorId": "browser-id", "accessToken": "browser-token"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"saved": True})
+        attempts = directory.ListVendors.call_args_list
+        self.assertEqual(len(attempts), 2)
+        self.assertGreater(attempts[0].kwargs["timeout"], 5)
+        self.assertLessEqual(attempts[1].kwargs["timeout"], attempts[0].kwargs["timeout"])
+        query = attempts[1].args[0]
+        self.assertEqual((query.government, query.query, query.page_size), ("", "Example SUPPLIER", 20))
+        self.assertEqual(directory.ListVendors.call_args.kwargs["metadata"], (
+            ("authorization", "Bearer test"),
+        ))
+        self.watchlist_call.assert_called_once_with("AddToWatchlist",
+            user_messages.WatchlistVendorRequest(access_token="test", vendor_id="opaque-id"))
+
+    def test_remove_uses_the_current_watchlist_without_querying_the_directory(self):
+        self.watchlist_call.side_effect = [
+            user_messages.ListWatchlistResponse(agency_code="AUS", items=[
+                user_messages.WatchlistItem(vendor_id="saved-id", vendor_name="Example supplier", agency_code="AUS"),
+                user_messages.WatchlistItem(vendor_id="other-id", vendor_name="Example supplier LLC", agency_code="AUS"),
+            ]),
+            user_messages.RemoveFromWatchlistResponse(),
+            user_messages.ListWatchlistResponse(agency_code="AUS"),
+        ]
+        with patch.object(vendor_directory, "_stub") as directory:
+            for _ in range(2):
+                response = self.http.delete(
+                    "/api/integration/vendor-watchlist", headers={"Authorization": "Bearer test"},
+                    json={"vendorName": " EXAMPLE  supplier ", "vendorId": "browser-id"},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json, {"saved": False})
+            directory.assert_not_called()
+        self.assertEqual([call.args[0] for call in self.watchlist_call.call_args_list],
+                         ["ListWatchlist", "RemoveFromWatchlist", "ListWatchlist"])
+        remove_request = self.watchlist_call.call_args_list[1].args[1]
+        self.assertEqual((remove_request.access_token, remove_request.vendor_id), ("test", "saved-id"))
+
+    def test_directory_errors_explain_timeout_and_session_failure(self):
+        for code, status, message in (
+            (grpc.StatusCode.DEADLINE_EXCEEDED, 504, "The vendor directory lookup timed out. Try again."),
+            (grpc.StatusCode.UNAUTHENTICATED, 401, "The vendor directory rejected this session. Sign in again."),
+        ):
+            with self.subTest(code=code):
+                directory = Mock()
+                directory.ListVendors.side_effect = LookupError(code)
+                with patch.object(vendor_directory, "_stub", return_value=directory):
+                    response = self.http.post(
+                        "/api/integration/vendor-watchlist", headers={"Authorization": "Bearer test"},
+                        json={"vendorName": "Commonwealth Trading Company, Inc."},
+                    )
+                self.assertEqual(response.status_code, status)
+                self.assertEqual(response.json["error"], message)
+                directory.ListVendors.assert_called_once()
+        self.watchlist_call.assert_not_called()
+
+    def test_ambiguous_or_missing_directory_vendor_cannot_be_saved(self):
+        matches = [
+            vendors_pb2.Vendor(vendor_id=vendor_id, vendor_name="Example", agency_code="AUS")
+            for vendor_id in ("v1", "v2")
+        ]
+        for vendors, status in ((matches, 409), ([], 404)):
+            with self.subTest(status=status):
+                directory = Mock()
+                directory.ListVendors.return_value = vendors_pb2.ListVendorsResponse(
+                    agency_code="AUS", page=1, vendors=vendors,
+                )
+                with patch.object(vendor_directory, "_stub", return_value=directory):
+                    response = self.http.post(
+                        "/api/integration/vendor-watchlist", headers={"Authorization": "Bearer test"},
+                        json={"vendorName": "Example"},
+                    )
+                self.assertEqual(response.status_code, status)
+        self.watchlist_call.assert_not_called()
+
     def test_rejects_nonmembers_before_contacting_hardware(self):
         self.members = ["different-user"]
         self.assertEqual(self.compare(userId="different-user").status_code, 403)
         self.hardware_call.assert_not_called()
+        self.watchlist_call.assert_not_called()
 
     def test_rejects_invalid_quantity_and_foreign_agency_before_forwarding(self):
         self.assertEqual(self.compare(quantity=True).status_code, 400)

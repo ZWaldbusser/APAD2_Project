@@ -37,6 +37,12 @@ export const getVendorRankings = ({ projectId, hardwareId, quantity }) =>
     method: "POST",
     body: { projectId, hardwareId, quantity },
   });
+export const updateRankingVendor = (vendorName, saved) =>
+  request("hardware", "/api/integration/vendor-watchlist", {
+    method: saved ? "POST" : "DELETE",
+    body: { vendorName },
+  });
+
 export const getProjectAllocations = (projectId) =>
   allPages((params) => listAllocations(projectId, params));
 

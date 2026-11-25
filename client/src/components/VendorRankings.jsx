@@ -28,16 +28,65 @@ function BenchmarkDifference({ value }) {
   );
 }
 
-function RankingResult({ result, preferredVendors }) {
+function WatchlistAction({ name, saved, pendingVendor, onUpdate }) {
+  return (
+    <div className="vendor-watchlist-actions">
+      {saved ? (
+        <span className="vendor-watchlist-saved">Saved vendor</span>
+      ) : (
+        <button
+          type="button"
+          className="workspace-button secondary vendor-watchlist-action"
+          aria-label={`Save ${name} to watchlist`}
+          disabled={Boolean(pendingVendor)}
+          onClick={() => onUpdate(name, true)}
+        >
+          {pendingVendor === name ? "Saving…" : "Watchlist"}
+        </button>
+      )}
+      {saved && (
+        <button
+          type="button"
+          className="workspace-button secondary vendor-watchlist-action"
+          aria-label={`Remove ${name} from watchlist`}
+          disabled={Boolean(pendingVendor)}
+          onClick={() => onUpdate(name, false)}
+        >
+          {pendingVendor === name ? "Removing…" : "Remove"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RankingResult({ result, preferredVendors, onWatchlistUpdate }) {
+  const [pendingVendor, setPendingVendor] = useState("");
+  const [watchlistError, setWatchlistError] = useState(null);
+  const updateWatchlist = async (name, saved) => {
+    if (pendingVendor) return;
+    setPendingVendor(name);
+    setWatchlistError(null);
+    try {
+      const response = await hardware.updateRankingVendor(name, saved);
+      const confirmation = await hardware.responseData(response);
+      if (confirmation.saved !== saved) throw new Error("Could not confirm the watchlist change.");
+      onWatchlistUpdate(name, saved);
+    } catch (error) {
+      setWatchlistError({ vendor: name, action: saved ? "save" : "remove", message: error.message });
+    } finally {
+      setPendingVendor("");
+    }
+  };
   const { availability, benchmark, excludedRecordCount } = result;
-  const rankByPreference = (name) => preferredVendors.has(name) ? 0 : 1;
+  const savedVendors = new Set(result.savedVendors);
+  const comparePreferences = (left, right) =>
+    Number(preferredVendors.has(right)) - Number(preferredVendors.has(left))
+    || Number(savedVendors.has(right)) - Number(savedVendors.has(left));
   const rankedVendors = [...result.rankedVendors].sort((left, right) =>
     Number(right.withinBudget) - Number(left.withinBudget)
-    || rankByPreference(left.vendor) - rankByPreference(right.vendor),
+    || comparePreferences(left.vendor, right.vendor),
   );
-  const unpricedVendors = [...result.unpricedVendors].sort(
-    (left, right) => rankByPreference(left) - rankByPreference(right),
-  );
+  const unpricedVendors = [...result.unpricedVendors].sort(comparePreferences);
   return (
     <div className="vendor-ranking-result">
       <h3>{result.hardwareName} · {result.quantity} {result.quantity === 1 ? "unit" : "units"}</h3>
@@ -64,6 +113,15 @@ function RankingResult({ result, preferredVendors }) {
       )}
       {availability === "unavailable" && (
         <>
+          {watchlistError && (
+            <p className="error-text" role="alert">
+              Could not {watchlistError.action} <strong>{watchlistError.vendor}</strong><br />
+              {watchlistError.message}
+            </p>
+          )}
+          {result.watchlistUnavailable && (
+            <p role="status">Saved vendor preferences could not be loaded.</p>
+          )}
           {rankedVendors.length > 0 && (
             <>
               <h4>Ranked vendors</h4>
@@ -75,28 +133,36 @@ function RankingResult({ result, preferredVendors }) {
               <ol className="vendor-ranking-list" aria-label="Ranked vendors">
                 {rankedVendors.map((vendor) => (
                   <li key={vendor.vendor}>
-                    <div>
-                      <strong>{vendor.vendor}</strong>
-                      {vendor.recommended && (
-                        <span className="vendor-recommended">
-                          {vendor.priceBasis === "category" ? "Lowest in-budget estimate" : "Recommended"}
+                    <div className="vendor-ranked-row">
+                      <div>
+                        <strong>{vendor.vendor}</strong>
+                        {vendor.recommended && (
+                          <span className="vendor-recommended">
+                            {vendor.priceBasis === "category" ? "Lowest in-budget estimate" : "Recommended"}
+                          </span>
+                        )}
+                        <span className="vendor-price">{unitCurrency.format(vendor.unitPrice)} median historical unit price</span>
+                        <span className="vendor-price">
+                          {vendor.priceBasis === "category" ? "Category estimate" : "Model-name match"}
+                          {" · "}{vendor.priceRecordCount} {vendor.priceRecordCount === 1 ? "price record" : "price records"}
                         </span>
-                      )}
-                      <span className="vendor-price">{unitCurrency.format(vendor.unitPrice)} median historical unit price</span>
-                      <span className="vendor-price">
-                        {vendor.priceBasis === "category" ? "Category estimate" : "Model-name match"}
-                        {" · "}{vendor.priceRecordCount} {vendor.priceRecordCount === 1 ? "price record" : "price records"}
-                      </span>
-                      <span className="vendor-price">Procurement commodity: {vendor.commodities.join("; ")}</span>
-                    </div>
-                    <div>
-                      <strong>{dollars(vendor.estimatedTotal)} estimated</strong>
-                      <span className="vendor-price">
-                        {vendor.withinBudget
-                          ? "Within total project budget"
-                          : `${dollars(vendor.overBudgetBy)} over total project budget`}
-                      </span>
-                      <BenchmarkDifference value={vendor.differenceFromTypical} />
+                        <span className="vendor-price">Procurement commodity: {vendor.commodities.join("; ")}</span>
+                      </div>
+                      <div>
+                        <strong>{dollars(vendor.estimatedTotal)} estimated</strong>
+                        <span className="vendor-price">
+                          {vendor.withinBudget
+                            ? "Within total project budget"
+                            : `${dollars(vendor.overBudgetBy)} over total project budget`}
+                        </span>
+                        <BenchmarkDifference value={vendor.differenceFromTypical} />
+                      </div>
+                      <WatchlistAction
+                        name={vendor.vendor}
+                        saved={savedVendors.has(vendor.vendor)}
+                        pendingVendor={pendingVendor}
+                        onUpdate={updateWatchlist}
+                      />
                     </div>
                   </li>
                 ))}
@@ -110,7 +176,21 @@ function RankingResult({ result, preferredVendors }) {
             <>
               <h4>Unpriced alternatives</h4>
               <p>These vendors have no comparable historical unit price in the results.</p>
-              <ul>{unpricedVendors.map((vendor) => <li key={vendor}>{vendor}</li>)}</ul>
+              <ul>
+                {unpricedVendors.map((vendor) => (
+                  <li key={vendor}>
+                    <div className="vendor-unpriced-row">
+                      <span>{vendor}</span>
+                      <WatchlistAction
+                        name={vendor}
+                        saved={savedVendors.has(vendor)}
+                        pendingVendor={pendingVendor}
+                        onUpdate={updateWatchlist}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </>
           )}
           {!rankedVendors.length && !unpricedVendors.length && (
@@ -253,7 +333,19 @@ export default function VendorRankings({ agency, userId }) {
       {status === "loading" && <p role="status">Checking budget and vendor alternatives…</p>}
       {status === "error" && <p className="error-text" role="alert">{error}</p>}
       <div aria-live="polite">
-        {result && <RankingResult result={result} preferredVendors={preferredVendors} />}
+        {result && (
+          <RankingResult
+            result={result}
+            preferredVendors={preferredVendors}
+            onWatchlistUpdate={(name, saved) => setResult((current) => {
+              if (current !== result) return current;
+              const savedVendors = new Set(current.savedVendors);
+              if (saved) savedVendors.add(name);
+              else savedVendors.delete(name);
+              return { ...current, savedVendors: [...savedVendors] };
+            })}
+          />
+        )}
       </div>
     </section>
   );

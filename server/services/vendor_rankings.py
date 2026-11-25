@@ -6,6 +6,8 @@ from statistics import median
 from hardware import client as hardware_client
 from hardware import hardware_pb2 as hardware_messages
 from projects import client as projects
+from users import client as users
+from users.vendor_directory import vendor_name_key
 
 _CENT = Decimal("0.01")
 # Procurement values outside the exact whole-cent range are not meaningful estimates.
@@ -144,7 +146,25 @@ def _rank(matches, benchmark, budget, quantity):
     return {"rankedVendors": ranked, "unpricedVendors": sorted(unpriced, key=str.casefold)}
 
 
-def get_vendor_rankings(project_id, agency, user_id, hardware_id, quantity):
+def _saved_vendors(access_token, agency, display_names):
+    if not display_names:
+        return [], False
+    try:
+        watchlist = users.list_watchlist(access_token, agency)
+    except users.UsersServiceError:
+        return [], True
+
+    # Hardware sends names only. An exact normalized name must identify one
+    # opaque Users vendor ID before it can affect the ranking.
+    saved_ids = {}
+    for item in watchlist:
+        key = vendor_name_key(item.vendor_name)
+        if key in display_names and item.vendor_id:
+            saved_ids.setdefault(key, set()).add(item.vendor_id)
+    return [display_names[key] for key, ids in saved_ids.items() if len(ids) == 1], False
+
+
+def get_vendor_rankings(project_id, agency, user_id, hardware_id, quantity, *, access_token):
     _, payload = projects.get_project(project_id, agency)
     project = payload["projectInfo"]
     if user_id not in project["joined_users"]:
@@ -173,10 +193,11 @@ def get_vendor_rankings(project_id, agency, user_id, hardware_id, quantity):
     ranking = _rank(matches, benchmark, budget, quantity)
     vendor_names = [row["vendor"] for row in ranking["rankedVendors"]] + ranking["unpricedVendors"]
     display_names = {name.casefold(): name for name in vendor_names}
+    saved_vendors, watchlist_unavailable = _saved_vendors(access_token, agency, display_names)
     tagged = {}
-    for name, _, _, _, tag in matches:
+    for vendor_name, _, _, _, tag in matches:
         if tag:
-            tagged.setdefault(tag, set()).add(display_names[name.casefold()])
+            tagged.setdefault(tag, set()).add(display_names[vendor_name.casefold()])
 
     return {
         "projectName": project["projectName"],
@@ -191,4 +212,6 @@ def get_vendor_rankings(project_id, agency, user_id, hardware_id, quantity):
             for tag, vendors in sorted(tagged.items())
         ],
         "excludedRecordCount": excluded,
+        "savedVendors": saved_vendors,
+        "watchlistUnavailable": watchlist_unavailable,
     }

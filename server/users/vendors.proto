@@ -1,0 +1,69 @@
+syntax = "proto3";
+package vendors.v1;
+
+service VendorDataService {
+  rpc ListVendors(ListVendorsRequest) returns (ListVendorsResponse);
+  rpc GetVendorRecords(GetVendorRecordsRequest) returns (GetVendorRecordsResponse);
+}
+
+message ListVendorsRequest {
+  string government = 1; // omitted: use verified agency; otherwise AUS/DAL/TEX
+  string query = 2;      // literal substring, not SQL wildcard syntax
+  int32 page = 3;        // 0 means 1
+  int32 page_size = 4;   // 0 means 20; maximum 100
+}
+message GetVendorRecordsRequest {
+  string government = 1;
+  string vendor_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+message Vendor {
+  string vendor_id = 1;
+  string agency_code = 2;
+  string vendor_name = 3;
+  string identity_method = 4; // SOURCE_CODE or NORMALIZED_NAME
+  string source_vendor_code = 5; // empty when not available
+  string record_count = 6;
+}
+message DataInfo {
+  string source_view = 1;
+  string queried_at_utc = 2;
+  string last_successful_refresh_utc = 3; // empty means unknown
+  string refresh_status = 4;             // UNKNOWN in this implementation
+  string consistency_notice = 5;
+}
+message ListVendorsResponse {
+  string agency_code = 1;
+  repeated Vendor vendors = 2;
+  string total_count = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+  bool has_next = 6;
+  DataInfo data_info = 7;
+}
+message VendorRecord {
+  string vendor_name = 1;
+  string record_date = 2; // YYYY-MM-DD, not a timestamp
+  bool has_record_date = 3;
+  string record_date_kind = 4;
+  string description = 5;
+  bool has_description = 6;
+  string description_source = 7;
+  string amount = 8; // exact decimal string; never float/double
+  bool has_amount = 9;
+  string source = 10;
+  string record_type = 11;
+  string source_record_reference = 12;
+  bool has_source_record_reference = 13;
+}
+message GetVendorRecordsResponse {
+  string agency_code = 1;
+  Vendor vendor = 2;
+  repeated VendorRecord records = 3;
+  string total_records = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+  bool has_next = 7;
+  DataInfo data_info = 8;
+}
