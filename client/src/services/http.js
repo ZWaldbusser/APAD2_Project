@@ -13,6 +13,8 @@ export function getToken() {
 function handleUnauthorized(res) {
   if (res.status === 401 && window.location.pathname !== "/login") {
     localStorage.removeItem("token");
+    sessionStorage.removeItem("mfaToken");
+    sessionStorage.setItem("authNotice", "session-ended");
     window.location.href = "/login";
   }
 }

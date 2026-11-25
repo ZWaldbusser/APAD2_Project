@@ -14,10 +14,14 @@ async function loadProfile() {
   return {
     id: String(id),
     name:
-      [profile.userid, profile.username].find(
+      [profile.username, profile.userid].find(
         (value) => typeof value === "string" && value.trim() !== "",
       ) || "Account",
     agencyCode: Object.hasOwn(agencyNames, agency) ? agency : null,
+    twoFactorEnabled:
+      typeof profile.twoFactorEnabled === "boolean"
+        ? profile.twoFactorEnabled
+        : null,
   };
 }
 
