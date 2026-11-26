@@ -1,8 +1,9 @@
 """Protected browser requests use verified identity, not supplied actor IDs."""
+import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import app
@@ -175,16 +176,43 @@ class TrustedProjectContextTests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertNotIn("projectList", response.json)
 
-    def test_budget_context_keeps_verified_agency_and_unwraps_provider_status(self):
+    def test_budget_context_uses_rest_with_the_verified_agency(self):
+        item = {"description": "Monitor", "quantity": 1}
+        rest = Mock(status_code=200)
+        rest.json.return_value = {
+            "success": True, "orgId": "AUS", "budget": 100, "items": [
+                {**item, "unitPrice": "not available"},
+            ], "withinBudget": True,
+        }
+        with patch.dict(os.environ, {"PROJECTS_API_BASE_URL": "https://projects.example/"}), patch(
+            "projects.client.projects_rest.requests.request", return_value=rest,
+        ) as provider, patch.object(projects, "call") as grpc:
+            response = self.http.post("/api/projects-service/get_budget_context",
+                                      headers=self.headers,
+                                      json={"budget": 100, "items": [item]})
+            grpc.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["orgId"], "AUS")
+        self.assertFalse(response.json["items"][0]["priced"])
+        self.assertIsNone(response.json["withinBudget"])
+        self.assertEqual(response.json["unpricedItems"], 1)
+        self.assertEqual(provider.call_args.args, ("POST", "https://projects.example/get_budget_context"))
+        self.assertEqual(provider.call_args.kwargs["json"], {
+            "orgId": "AUS", "budget": 100, "items": [item],
+        })
+
+    def test_budget_context_falls_back_to_grpc_when_rest_fails(self):
         result = messages.GetBudgetContextResponse(org_id="AUS", budget=100, unpriced_items=1)
-        with patch.object(projects, "call", return_value=result) as provider:
+        with patch.dict(os.environ, {"PROJECTS_API_BASE_URL": "https://projects.example"}), patch(
+            "projects.client.projects_rest.call", return_value=(500, {"success": False}),
+        ) as rest, patch.object(projects, "call", return_value=result) as provider:
             response = self.http.post("/api/projects-service/get_budget_context",
                                       headers=self.headers,
                                       json={"budget": 100, "items": [{"description": "Monitor", "quantity": 1}]})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["orgId"], "AUS")
         self.assertIsNone(response.json["withinBudget"])
         self.assertEqual(provider.call_args.args[1].org_id, "AUS")
+        rest.assert_called_once()
 
 
 if __name__ == "__main__":

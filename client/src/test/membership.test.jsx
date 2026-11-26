@@ -394,3 +394,44 @@ test("an expired membership session offers a sign-in link without claiming succe
   ).toHaveAttribute("href", "/login");
   expect(screen.queryByText(/Join request saved/)).not.toBeInTheDocument();
 });
+
+test.each(["join", "leave"])(
+  "a provider-declined %s keeps the refreshed membership dialog and context",
+  async (action) => {
+    const user = userEvent.setup();
+    const provider = request.getMockImplementation();
+    request.mockImplementation((service, path, options) =>
+      path === `/projects/${action}_project`
+        ? Promise.resolve(
+            response({
+              success: false,
+              errorMessage: "Membership change declined",
+            }),
+          )
+        : provider(service, path, options),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      action === "join"
+        ? "/joinproject?projectId=P2&orgId=AUS"
+        : "/projects/P1?orgId=AUS",
+    );
+    render(<App />);
+    const label = action === "join" ? "Join project" : "Leave project";
+    await user.click(
+      await screen.findByRole("button", { name: label, exact: true }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: label, exact: true }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Membership change declined",
+    );
+    expect(dialog).toBeInTheDocument();
+    expect(window.location.pathname).toBe(
+      action === "join" ? "/joinproject" : "/projects/P1",
+    );
+  },
+);

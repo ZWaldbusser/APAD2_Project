@@ -53,7 +53,33 @@ test("creation displays the verified agency as a fixed field", async () => {
   const agency = await screen.findByLabelText("Agency");
   expect(agency).toHaveValue("DAL");
   expect(agency).toHaveAttribute("readonly");
-  expect(screen.queryByRole("combobox", { name: "Agency" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("combobox", { name: "Agency" }),
+  ).not.toBeInTheDocument();
+});
+
+test("an unconfirmed successful HTTP response never announces creation or allocates hardware", async () => {
+  const user = userEvent.setup();
+  const provider = request.getMockImplementation();
+  request.mockImplementation((service, path, options) =>
+    path === "/projects/create_project"
+      ? Promise.resolve(response({}))
+      : provider(service, path, options),
+  );
+  render(<App />);
+  await fillDetails(user);
+  await user.type(screen.getByLabelText("Allocate Workstations"), "2");
+  await user.click(screen.getByRole("button", { name: /^Create project$/i }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /couldn't create the project/i,
+  );
+  expect(
+    screen.queryByRole("heading", { name: "Project created" }),
+  ).not.toBeInTheDocument();
+  expect(
+    request.mock.calls.some(([, path]) => path.includes("/allocations/")),
+  ).toBe(false);
+  expect(screen.getByLabelText("Project ID")).toHaveValue("CIVIC-26");
 });
 
 test("the existing join form uses the account agency and canonical string ID", async () => {
@@ -71,7 +97,8 @@ test("the existing join form uses the account agency and canonical string ID", a
   await user.click(await screen.findByRole("button", { name: "Join project" }));
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Join project" }));
   expect(request).toHaveBeenCalledWith("projects", "/projects/join_project", {
-    method: "POST", body: { orgId: "DAL", projectId: "CIVIC-26", userId: "7" },
+    method: "POST",
+    body: { orgId: "DAL", projectId: "CIVIC-26", userId: "7" },
   });
 });
 

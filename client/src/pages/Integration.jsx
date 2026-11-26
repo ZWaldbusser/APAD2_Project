@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { visualization } from "../services";
 import { USE_VISUALIZATION_MOCKS } from "../config";
+import { useWorkspace } from "../context/WorkspaceContext";
+import VendorRankings from "../components/VendorRankings";
 import "../styles/ProjectDashboard.css";
 import "../styles/Visualization.css";
 
-// Visualization page.
+// Integration page.
 // The data pipelines are not connected yet. The page loads from
 // services/visualization.js. An explicitly enabled sample is confined to this page.
 
@@ -15,10 +17,11 @@ const STATUS_LABELS = {
   failed: "Failed",
 };
 
-function Visualization() {
+function Integration() {
+  const profile = useWorkspace();
+  const account = profile?.value;
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | error
-  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -27,8 +30,8 @@ function Visualization() {
         const res = await visualization.getVisualization();
         const body = await res.json();
         if (cancelled) return;
-        if (!res.ok) {
-          setError(body.error || "Could not load visualization");
+        if (!res.ok || !Array.isArray(body?.metrics)
+            || !Array.isArray(body.hardware) || !Array.isArray(body.pipelines)) {
           setStatus("error");
           return;
         }
@@ -36,7 +39,6 @@ function Visualization() {
         setStatus("ready");
       } catch {
         if (cancelled) return;
-        setError("Could not reach server");
         setStatus("error");
       }
     }
@@ -49,16 +51,36 @@ function Visualization() {
   return (
     <div>
       <main className="page-main">
+        <div className="projects-header">
+          <h1>Integration</h1>
+        </div>
+        {account?.agencyCode && (
+          <VendorRankings
+            key={JSON.stringify([account.agencyCode, account.id])}
+            agency={account.agencyCode}
+            userId={account.id}
+          />
+        )}
+        {profile?.status === "loading" && <p role="status">Verifying your account…</p>}
+        {profile && profile.status !== "loading" && !account?.agencyCode && (
+          <section className="workspace-panel vendor-ranking">
+            <h2>Alternate vendor rankings</h2>
+            <p>A verified agency account is required to use project budgets.</p>
+            <button type="button" className="workspace-button secondary" onClick={profile.retry}>
+              Check account again
+            </button>
+          </section>
+        )}
         {USE_VISUALIZATION_MOCKS && (
           <div className="workspace-sample" role="note">
-            <strong>Sample Overview</strong>
+            <strong>Sample summary metrics</strong>
             <span>
               Example data only · not live agency or inventory figures
             </span>
           </div>
         )}
         <div className="projects-header">
-          <h2>Visualization</h2>
+          <h2>Summary metrics</h2>
           {data?.generatedAt && (
             <span className="visualization-updated">
               Updated {new Date(data.generatedAt).toLocaleString()}
@@ -67,9 +89,9 @@ function Visualization() {
         </div>
 
         {status === "loading" && (
-          <p className="visualization-muted">Loading visualization...</p>
+          <p className="visualization-muted">Loading summary metrics…</p>
         )}
-        {status === "error" && <p className="error-text">{error}</p>}
+        {status === "error" && <p className="error-text">Summary metrics unavailable.</p>}
 
         {status === "ready" && (
           <>
@@ -144,4 +166,4 @@ function Visualization() {
   );
 }
 
-export default Visualization;
+export default Integration;

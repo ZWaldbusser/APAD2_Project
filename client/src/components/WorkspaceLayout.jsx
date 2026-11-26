@@ -63,7 +63,7 @@ export default function WorkspaceLayout() {
   const title = location.pathname.startsWith("/projects")
     ? "Projects"
     : {
-        "/visualization": "Overview",
+        "/integration": "Integration",
         "/userportal": "Account",
         "/createproject": "Create project",
         "/joinproject": "Join project",
@@ -116,9 +116,9 @@ export default function WorkspaceLayout() {
         >
           <p className="workspace-nav-label">WORKSPACE</p>
           <nav aria-label="Workspace">
-            <NavLink to="/visualization" onClick={() => setOpen(false)}>
+            <NavLink to="/integration" onClick={() => setOpen(false)}>
               <Icon name="overview" />
-              Overview
+              Integration
             </NavLink>
             <NavLink to="/projects" onClick={() => setOpen(false)}>
               <Icon name="projects" />
