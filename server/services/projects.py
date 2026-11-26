@@ -4,6 +4,7 @@ import os
 from urllib.parse import quote
 
 import requests
+from projects.settings import timeout_seconds
 
 
 class ProjectsServiceError(RuntimeError):
@@ -17,9 +18,7 @@ def call(method, path, *, data=None, params=None):
     if not base_url:
         raise ProjectsServiceError("PROJECTS_API_BASE_URL is not configured")
     try:
-        timeout = float(os.getenv("PROJECTS_API_TIMEOUT_SECONDS", "10"))
-        if not 0 < timeout < float("inf"):
-            raise ValueError()
+        timeout = timeout_seconds()
     except ValueError as error:
         raise ProjectsServiceError("PROJECTS_API_TIMEOUT_SECONDS must be positive and finite") from error
     try:

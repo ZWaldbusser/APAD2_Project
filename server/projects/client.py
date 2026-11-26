@@ -1,8 +1,11 @@
 """gRPC transport for the Projects service: project CRUD, membership, and price context."""
 
 import os
+import logging
+import re
 import sys
 import time
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -13,8 +16,10 @@ from dotenv import load_dotenv
 from projects import projects_pb2 as messages
 from projects import projects_pb2_grpc as services
 from services import projects as projects_rest
+from projects.settings import timeout_seconds
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+logger = logging.getLogger(__name__)
 
 
 _RETRY_SAFE = {
@@ -34,9 +39,20 @@ _HTTP_STATUS = {
     grpc.StatusCode.FAILED_PRECONDITION: 409,
     grpc.StatusCode.NOT_FOUND: 404,
     grpc.StatusCode.ALREADY_EXISTS: 409,
+    grpc.StatusCode.PERMISSION_DENIED: 403,
     grpc.StatusCode.UNAVAILABLE: 503,
     grpc.StatusCode.INTERNAL: 500,
 }
+
+
+def _safe_detail(value):
+    detail = re.sub(r"[\x00-\x1f\x7f]", " ", str(value or ""))
+    detail = re.sub(r"\b[A-Za-z][A-Za-z0-9+.-]*://\S+", "[URL redacted]", detail)
+    detail = re.sub(
+        r"(?i)\b(?:authorization|api[_-]?key|password|secret|token|bearer|basic)\b[^;]*",
+        "[credential detail redacted]", detail,
+    )
+    return detail[:500]
 
 
 def _endpoint(value):
@@ -67,9 +83,7 @@ def call(method, request):
         raise ProjectsServiceError("PROJECTS_GRPC_TARGET is not configured")
     target, secure = _endpoint(value)
     try:
-        timeout = float(os.getenv("PROJECTS_API_TIMEOUT_SECONDS", "60"))
-        if not 0 < timeout < float("inf"):
-            raise ValueError()
+        timeout = timeout_seconds()
     except ValueError as error:
         raise ProjectsServiceError("PROJECTS_API_TIMEOUT_SECONDS must be positive and finite") from error
     rpc = getattr(_stub(target, secure), method)
@@ -79,11 +93,16 @@ def call(method, request):
         try:
             return rpc(request, timeout=max(deadline - time.monotonic(), 0))
         except grpc.RpcError as error:
+            detail = _safe_detail(error.details())
+            logger.warning(
+                "Projects RPC failure method=%s grpc_status=%s occurred_at=%s detail=%s",
+                method, error.code().name, datetime.now(timezone.utc).isoformat(), detail,
+            )
             if (attempt + 1 < attempts and error.code() == grpc.StatusCode.UNAVAILABLE
                     and time.monotonic() < deadline):
                 continue
             status = _HTTP_STATUS.get(error.code(), 503)
-            message = (error.details() if status < 500 else None) or "Projects service is unavailable. Please try again."
+            message = (detail if status < 500 else None) or "Projects service is unavailable. Please try again."
             raise ProjectsServiceError(message, status) from error
 
 
@@ -166,7 +185,7 @@ def _item_estimate(item):
 def create_project(data):
     hw = [messages.HardwareItem(hardware_id=h["hardwareId"], allocation=h.get("allocation", 0))
           for h in (data.get("hardwareList") or [])]
-    call("CreateProject", messages.CreateProjectRequest(
+    result = call("CreateProject", messages.CreateProjectRequest(
         org_id=data["orgId"], project_id=data["projectId"],
         project_name=data["projectName"],
         project_desc=data.get("projectDesc", ""),
@@ -174,21 +193,23 @@ def create_project(data):
         budget=int(data.get("budget", 0)),
         hardware_list=hw,
     ))
-    return 200, {"success": True, "errorMessage": ""}
+    return 200, {"success": result.success, "errorMessage": result.error_message}
 
 
 def join_project(data):
-    call("JoinProject", messages.MembershipRequest(
+    result = call("JoinProject", messages.MembershipRequest(
         org_id=data["orgId"], project_id=data["projectId"], user_id=data["userId"],
+        user_name=data["userName"],
     ))
-    return 200, {"success": True, "errorMessage": ""}
+    return 200, {"success": result.success, "errorMessage": result.error_message}
 
 
 def leave_project(data):
-    call("LeaveProject", messages.MembershipRequest(
+    result = call("LeaveProject", messages.MembershipRequest(
         org_id=data["orgId"], project_id=data["projectId"], user_id=data["userId"],
+        user_name=data["userName"],
     ))
-    return 200, {"success": True, "errorMessage": ""}
+    return 200, {"success": result.success, "errorMessage": result.error_message}
 
 
 def search_projects(data):
@@ -221,6 +242,7 @@ def get_unit_price(data):
     return 200, {
         "success": True,
         "category": resp.category,
+        "dataAsOf": resp.data_as_of or None,
         "unitPrice": {
             "Austin": _source_unit_price(resp.austin),
             "Dallas": _source_unit_price(resp.dallas),

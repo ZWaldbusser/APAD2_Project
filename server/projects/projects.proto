@@ -1,16 +1,17 @@
 // projects.proto: gRPC contract for the Projects microservice (APAD Projects group)
-// Draft v0.2, 11 November 2026. Mirrors API contract v1.4, plus the frontend team's
-// requests: project_desc required, user_id search filter, joined_users in search results.
+// Projects API contract v1.7, 22 November 2026. Wire fields verified through
+// the deployed service reflection. Preserve field numbers when regenerating.
 //
 // Conventions
 // - Field names are snake_case. In JSON (Postman, grpcurl) they appear as camelCase:
 //   org_id -> orgId, creator_id -> creatorId.
-// - A successful call returns OK. Errors use standard gRPC status codes instead of
-//   success / errorMessage fields. The status message holds the readable error text.
+// - Mutations return success / error_message; do not manufacture success from OK.
+//   RPC failures also use standard gRPC status codes with readable status details.
 //     INVALID_ARGUMENT     missing or invalid field (REST 400 / 422)
 //     NOT_FOUND            project does not exist (REST 404)
 //     ALREADY_EXISTS       duplicate project, or user already joined (REST 409)
-//     FAILED_PRECONDITION  leaving a project the user is not a member of (REST 409)
+//     PERMISSION_DENIED    deletion by a non-creator (REST 403)
+//     FAILED_PRECONDITION  membership or outstanding-hardware conflict (REST 409)
 //     UNAVAILABLE          database or Azure SQL temporarily unreachable; safe to retry
 //     INTERNAL             unexpected server error (REST 500)
 // - Price sources (Austin, Dallas, Texas) return available = false with no stats when
@@ -29,6 +30,7 @@ service ProjectsService {
   rpc LeaveProject(MembershipRequest) returns (MembershipResponse);
   rpc SearchProjects(SearchProjectsRequest) returns (SearchProjectsResponse);
   rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse);
 
   // Price context (Azure SQL)
   rpc GetUnitPrice(GetUnitPriceRequest) returns (GetUnitPriceResponse);
@@ -68,8 +70,11 @@ message CreateProjectRequest {
   repeated HardwareItem hardware_list = 7;  // optional
 }
 
-// Empty on success. Errors: INVALID_ARGUMENT, ALREADY_EXISTS.
-message CreateProjectResponse {}
+// Errors may be reported in the response or as a gRPC status.
+message CreateProjectResponse {
+  bool success = 1;
+  string error_message = 2;
+}
 
 // ============================================================ JoinProject / LeaveProject
 
@@ -77,13 +82,17 @@ message MembershipRequest {
   string org_id = 1;      // required
   string project_id = 2;  // required
   string user_id = 3;     // required
+  optional string user_name = 4;   // authenticated profile username for notifications
 }
 
-// Empty on success.
+// The mutation result must be preserved.
 // Join errors:  NOT_FOUND, ALREADY_EXISTS (already a member).
 // Leave errors: NOT_FOUND, FAILED_PRECONDITION (not a member).
 // A successful join or leave also notifies the project creator through Novu.
-message MembershipResponse {}
+message MembershipResponse {
+  bool success = 1;
+  string error_message = 2;
+}
 
 // ============================================================ SearchProjects
 
@@ -119,6 +128,20 @@ message GetProjectResponse {
   Project project_info = 1;
 }
 
+// ============================================================ DeleteProject
+// Partner capability only: the UI adapter exposes no delete route in this slice.
+// Creator only; Projects releases Hardware reservations before deletion and
+// refuses deletion while hardware is checked out.
+message DeleteProjectRequest {
+  string org_id = 1;
+  string project_id = 2;
+  string user_id = 3;
+}
+message DeleteProjectResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
 // ============================================================ shared price types
 
 // Typical price per unit. median is typical; low and high are the 25th and 75th
@@ -150,6 +173,7 @@ message GetUnitPriceResponse {
   SourceUnitPrice austin = 2;
   SourceUnitPrice dallas = 3;
   SourceUnitPrice texas = 4;
+  string data_as_of = 5; // Austin verified source refresh; preserve timezone semantics
 }
 
 // ============================================================ GetDepartmentSpend

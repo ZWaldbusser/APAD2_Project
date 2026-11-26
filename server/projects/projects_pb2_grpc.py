@@ -59,6 +59,11 @@ class ProjectsServiceStub:
                 request_serializer=projects_dot_projects__pb2.GetProjectRequest.SerializeToString,
                 response_deserializer=projects_dot_projects__pb2.GetProjectResponse.FromString,
                 _registered_method=True)
+        self.DeleteProject = channel.unary_unary(
+                '/projects.v1.ProjectsService/DeleteProject',
+                request_serializer=projects_dot_projects__pb2.DeleteProjectRequest.SerializeToString,
+                response_deserializer=projects_dot_projects__pb2.DeleteProjectResponse.FromString,
+                _registered_method=True)
         self.GetUnitPrice = channel.unary_unary(
                 '/projects.v1.ProjectsService/GetUnitPrice',
                 request_serializer=projects_dot_projects__pb2.GetUnitPriceRequest.SerializeToString,
@@ -110,6 +115,12 @@ class ProjectsServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteProject(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetUnitPrice(self, request, context):
         """Price context (Azure SQL)
         """
@@ -156,6 +167,11 @@ def add_ProjectsServiceServicer_to_server(servicer, server):
                     servicer.GetProject,
                     request_deserializer=projects_dot_projects__pb2.GetProjectRequest.FromString,
                     response_serializer=projects_dot_projects__pb2.GetProjectResponse.SerializeToString,
+            ),
+            'DeleteProject': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteProject,
+                    request_deserializer=projects_dot_projects__pb2.DeleteProjectRequest.FromString,
+                    response_serializer=projects_dot_projects__pb2.DeleteProjectResponse.SerializeToString,
             ),
             'GetUnitPrice': grpc.unary_unary_rpc_method_handler(
                     servicer.GetUnitPrice,
@@ -308,6 +324,33 @@ class ProjectsService:
             '/projects.v1.ProjectsService/GetProject',
             projects_dot_projects__pb2.GetProjectRequest.SerializeToString,
             projects_dot_projects__pb2.GetProjectResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteProject(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/projects.v1.ProjectsService/DeleteProject',
+            projects_dot_projects__pb2.DeleteProjectRequest.SerializeToString,
+            projects_dot_projects__pb2.DeleteProjectResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -36,8 +36,8 @@ function JoinProject() {
       });
       const data = await res.json();
 
-      if (!res.ok) {
-        setError(data.errorMessage || "Could not join project");
+      if (!res.ok || data?.success !== true) {
+        setError(data?.errorMessage || "Could not join project");
         return;
       }
 
