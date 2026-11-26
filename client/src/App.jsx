@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -13,7 +13,7 @@ import ResourceRental from "./pages/ResourceRental";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import TwoFactorSetup from "./pages/TwoFactorSetup";
 import EnterCode from "./pages/EnterCode";
-import Visualization from "./pages/Visualization";
+import Integration from "./pages/Integration";
 import ProjectDetail from "./pages/ProjectDetail";
 import WorkspaceProvider from "./context/WorkspaceProvider";
 import WorkspaceLayout from "./components/WorkspaceLayout";
@@ -47,7 +47,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/visualization" element={<Visualization />} />
+            <Route path="/integration" element={<Integration />} />
+            <Route path="/visualization" element={<Navigate replace to="/integration" />} />
             <Route path="/projects" element={<ProjectDashboard />} />
             <Route path="/userportal" element={<UserPortal />} />
             <Route path="/createproject" element={<CreateProject />} />

@@ -12,11 +12,12 @@ class ProjectsProvider(services.ProjectsServiceServicer):
         self.records = {(p.org_id, p.project_id): p for p in records}
         self.calls = []
         self.failure = None
+        self.failure_detail = "Provider rejected the request"
 
     def record(self, method, request, context):
         self.calls.append((method, request))
         if self.failure:
-            context.abort(self.failure, "Provider rejected the request")
+            context.abort(self.failure, self.failure_detail)
 
     def GetProject(self, request, context):
         self.record("GetProject", request, context)
@@ -44,7 +45,22 @@ class ProjectsProvider(services.ProjectsServiceServicer):
             creator_id=request.creator_id, budget=request.budget,
             hardware_list=request.hardware_list, joined_users=[request.creator_id],
         )
-        return messages.CreateProjectResponse()
+        return messages.CreateProjectResponse(success=True)
+
+    def JoinProject(self, request, context):
+        self.record("JoinProject", request, context)
+        return messages.MembershipResponse(success=True)
+
+    def LeaveProject(self, request, context):
+        self.record("LeaveProject", request, context)
+        return messages.MembershipResponse(success=True)
+
+    def GetUnitPrice(self, request, context):
+        self.record("GetUnitPrice", request, context)
+        return messages.GetUnitPriceResponse(
+            category=request.category, data_as_of="2026-11-22 08:00:00",
+            austin=messages.SourceUnitPrice(available=True, stats=messages.PriceStats(median=75)),
+        )
 
 
 def start_projects(test, records):

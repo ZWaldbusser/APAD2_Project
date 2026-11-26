@@ -113,7 +113,7 @@ function TwoFactorSetup() {
         showConfirmButton: false,
       });
 
-      navigate("/visualization");
+      navigate("/integration");
     } catch {
       // Error alert if server is unreachable
       Swal.fire({

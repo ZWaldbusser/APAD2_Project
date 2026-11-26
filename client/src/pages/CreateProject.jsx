@@ -214,10 +214,10 @@ function CreationForm({ profile }) {
         };
         const res = await projects.createProject(payload);
         const data = await res.json();
-        if (!res.ok || data.success === false) {
-          const detail = Array.isArray(data.detail)
+        if (!res.ok || data?.success !== true) {
+          const detail = Array.isArray(data?.detail)
             ? data.detail.map((item) => item.msg).join("; ")
-            : data.errorMessage || data.error;
+            : data?.errorMessage || data?.error;
           setMessage(
             typeof detail === "string"
               ? detail

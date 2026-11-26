@@ -2,11 +2,30 @@
 
 from flask import Blueprint, jsonify, request
 from request_scope import agency_data, json_object, reject, require_text
+from users import client as users_api
 from projects.client import (
     create_project, join_project, leave_project,
     search_projects, get_project, get_unit_price,
     get_department_spend, get_budget_context,
 )
+
+
+def _membership_data():
+    data = agency_data(json_object())
+    data["userId"] = request.user_id
+    require_text(data, "projectId")
+    profile = users_api.get_profile(request.access_token).get("user")
+    if (not isinstance(profile, dict)
+            or type(profile.get("id")) not in (str, int)
+            or str(profile["id"]) != str(request.user_id)
+            or profile.get("agencyCode") != request.agency_code):
+        raise users_api.UsersServiceError("Account profile could not be verified", 502)
+    username = profile.get("username")
+    if not isinstance(username, str) or not username.strip():
+        raise users_api.UsersServiceError("Account username is unavailable. Please try again.", 502)
+    # Never use either browser-supplied spelling as identity evidence.
+    data["userName"] = username.strip()
+    return data
 
 
 def create_blueprint(token_required):
@@ -42,19 +61,13 @@ def create_blueprint(token_required):
     @routes.route("/projects/join_project", methods=["POST"])
     @token_required
     def join():
-        data = agency_data(json_object())
-        data["userId"] = request.user_id
-        require_text(data, "projectId")
-        status, payload = join_project(data)
+        status, payload = join_project(_membership_data())
         return jsonify(payload), status
 
     @routes.route("/projects/leave_project", methods=["POST"])
     @token_required
     def leave():
-        data = agency_data(json_object())
-        data["userId"] = request.user_id
-        require_text(data, "projectId")
-        status, payload = leave_project(data)
+        status, payload = leave_project(_membership_data())
         return jsonify(payload), status
 
     @routes.route("/projects/search_project", methods=["POST"])

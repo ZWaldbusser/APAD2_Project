@@ -18,7 +18,7 @@ DEFAULT_TARGET = "apad-users-grpc.bluedesert-b9b6bdd4.westus.azurecontainerapps.
 
 # Only read-only calls are retried. Retrying login or a 2FA code could double-submit
 # (a one-time code that already succeeded would then be rejected as reused).
-_RETRY_SAFE = {"GetProfile", "ValidateAccessToken"}
+_RETRY_SAFE = {"GetProfile", "ValidateAccessToken", "ListWatchlist"}
 
 
 class UsersServiceError(RuntimeError):
@@ -39,18 +39,18 @@ _HTTP_STATUS = {
 }
 
 
-def _endpoint(value):
+def _endpoint(value, *, setting="USERS_GRPC_TARGET"):
     """Convert a service address into a gRPC authority, using TLS by default."""
     parsed = urlsplit(value if "://" in value else "https://" + value)
     if (parsed.scheme not in ("https", "grpcs", "http", "grpc")
             or not parsed.hostname or parsed.path not in ("", "/")
             or parsed.query or parsed.fragment or parsed.username or parsed.password):
-        raise UsersServiceError("USERS_GRPC_TARGET must be a host[:port] without a path")
+        raise UsersServiceError(f"{setting} must be a host[:port] without a path")
     secure = parsed.scheme in ("https", "grpcs")
     try:
         port = parsed.port or (443 if secure else 80)
     except ValueError as error:
-        raise UsersServiceError("Invalid users gRPC port") from error
+        raise UsersServiceError(f"Invalid {setting} port") from error
     host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
     return f"{host}:{port}", secure
 
@@ -71,6 +71,8 @@ def call(method, request):
             raise ValueError()
     except ValueError as error:
         raise UsersServiceError("USERS_API_TIMEOUT_SECONDS must be positive and finite") from error
+    if method in {"ListWatchlist", "AddToWatchlist", "RemoveFromWatchlist"}:
+        timeout = min(timeout, 5)
     rpc = getattr(_stub(target, secure), method)
     deadline = time.monotonic() + timeout
     attempts = 2 if method in _RETRY_SAFE else 1
@@ -134,3 +136,23 @@ def validate_access_token(access_token):
     """Returns (user_id, agency_code) for a valid access token; raises UsersServiceError otherwise."""
     r = call("ValidateAccessToken", messages.ValidateAccessTokenRequest(access_token=access_token))
     return r.user_id, r.agency_code
+
+
+def list_watchlist(access_token, agency):
+    result = call("ListWatchlist", messages.AccessTokenRequest(access_token=access_token))
+    if result.agency_code != agency or any(item.agency_code != agency for item in result.items):
+        raise UsersServiceError("Vendor watchlist agency could not be verified", 502)
+    return result.items
+
+
+def add_to_watchlist(access_token, vendor_id):
+    result = call("AddToWatchlist", messages.WatchlistVendorRequest(
+        access_token=access_token, vendor_id=vendor_id,
+    ))
+    return result.item
+
+
+def remove_from_watchlist(access_token, vendor_id):
+    call("RemoveFromWatchlist", messages.WatchlistVendorRequest(
+        access_token=access_token, vendor_id=vendor_id,
+    ))
