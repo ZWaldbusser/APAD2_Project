@@ -1,6 +1,7 @@
 import { useWorkspace } from "../context/WorkspaceContext";
 import VendorRankings from "../components/VendorRankings";
 import SummaryOverview from "../components/SummaryOverview";
+import LiveHardwareInventory from "../components/LiveHardwareInventory";
 // Preserve the merged vendor form, ranking and watchlist presentation.
 import "../styles/Visualization.css";
 
@@ -22,6 +23,9 @@ export default function Integration() {
           Go to vendor comparison
         </a>
       </div>
+      {account?.agencyCode && (
+        <LiveHardwareInventory key={JSON.stringify([account.agencyCode, account.id])} />
+      )}
       <SummaryOverview />
       <div className="insights-vendors" id="alternate-vendors">
         {account?.agencyCode && (

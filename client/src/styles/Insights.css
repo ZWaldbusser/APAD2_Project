@@ -171,6 +171,38 @@
 .insights-sample {
   margin-bottom: 0;
 }
+.inventory-live {
+  margin-bottom: 28px;
+}
+.inventory-pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.inventory-pools h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.inventory-pools .workspace-muted {
+  overflow-wrap: anywhere;
+}
+.inventory-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 18px;
+  margin: 22px 0 0;
+}
+.inventory-counts dt {
+  color: var(--workspace-muted);
+  font-size: 0.9rem;
+}
+.inventory-counts dd {
+  margin: 6px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 900px) {
   .insights-detail-grid {
     grid-template-columns: 1fr;
