@@ -197,6 +197,18 @@ def get_allocations():
     return jsonify(payload), status
 
 
+@app.route("/api/hardware/checkouts", methods=["POST"])
+@token_required
+def list_own_checkouts():
+    data = agency_data(json_object())
+    require_text(data, "projectId")
+    project_id = data["projectId"]
+    if not _query_project(project_id, request.agency_code):
+        reject("Project not found", 404)
+    status, payload = hardware_db.get_outstanding_checkouts(project_id, request.user_id, data)
+    return jsonify(payload), status
+
+
 @app.route("/api/hardware/<hardware_id>/allocations/<project_id>", methods=["POST"])
 @token_required
 def set_allocation(hardware_id, project_id):
@@ -214,6 +226,17 @@ def set_allocation(hardware_id, project_id):
         "reason": data["reason"],
         "quantity": data["quantity"],
     })
+    return jsonify(payload), status
+
+
+@app.route("/api/hardware/<hardware_id>/availability", methods=["POST"])
+@token_required
+def hardware_availability(hardware_id):
+    data = agency_data(json_object())
+    require_text(data, "projectId")
+    if not _query_project(data["projectId"], request.agency_code):
+        reject("Project not found", 404)
+    status, payload = hardware_db.get_availability(hardware_id)
     return jsonify(payload), status
 
 

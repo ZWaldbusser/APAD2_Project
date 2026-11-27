@@ -98,6 +98,8 @@ class TrustedProjectContextTests(unittest.TestCase):
             ("/api/hardware/checkout", {"projectId": "P1", "name": "Monitor", "quantity": 1}),
             ("/api/hardware/checkin", {"projectId": "P1", "name": "Monitor", "quantity": 1}),
             ("/api/listAllocations", {"projectId": "P1"}),
+            ("/api/hardware/checkouts", {"projectId": "P1"}),
+            ("/api/hardware/H1/availability", {"projectId": "P1"}),
             ("/api/hardware/H1/allocations/P1", {"quantity": 1, "expected_version": 1, "reason": "Test allocation"}),
         ]
         for path, data in cases:

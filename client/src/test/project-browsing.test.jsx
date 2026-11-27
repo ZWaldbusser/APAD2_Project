@@ -49,8 +49,8 @@ test("opens equipment directly from the project row with both identifiers and th
   const equipment = screen.getByRole('link', { name: 'Manage equipment for Library network refresh' });
   expect(equipment).toHaveAttribute('href', '/projects/P1%20%2F%20north/resources?orgId=AUS');
   await user.click(equipment);
-  expect(await screen.findByRole('heading', { name: 'Project P1 / north' })).toBeInTheDocument();
-  expect(await screen.findByRole('cell', { name: 'Laptops' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Library network refresh equipment' })).toBeInTheDocument();
+  expect(await screen.findByRole('region', { name: 'Laptops' })).toBeInTheDocument();
   expect(window.location.search).toBe('?orgId=AUS');
   expect(request).toHaveBeenCalledWith('hardware', '/api/listAllocations', { method: 'POST', body: { page: 1, size: 100, projectId: 'P1 / north' } });
 });
