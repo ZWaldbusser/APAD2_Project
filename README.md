@@ -29,20 +29,63 @@ real source is configured. `VITE_USE_VISUALIZATION_MOCKS=true` explicitly enable
 only a labelled **Sample summary metrics**. It never intercepts authentication, project
 or hardware calls and does not supply verified agency/inventory figures.
 
-| Browser API (Flask) | Upstream contract | Configuration |
-| --- | --- | --- |
-| `/api/users-service/*` | Users/MFA gRPC | `USERS_GRPC_TARGET` (default in `server/users/client.py`) |
-| POST `/api/projects-service/get_budget_context` | Projects REST with gRPC fallback | `PROJECTS_API_BASE_URL`, `PROJECTS_GRPC_TARGET` |
-| Other `/api/projects-service/*` routes | Projects gRPC, supplied proto v0.2 | `PROJECTS_GRPC_TARGET` |
-| POST `/api/hardware`, `/api/listAllocations` and existing hardware write routes | Hardware gRPC | `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`, `HARDWARE_API_TEAM` |
+| Browser API (Flask)                                                             | Upstream contract                  | Configuration                                                         |
+| ------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------- |
+| `/api/users-service/*`                                                          | Users/MFA gRPC                     | `USERS_GRPC_TARGET` (default in `server/users/client.py`)             |
+| POST `/api/projects-service/get_budget_context`                                 | Projects REST with gRPC fallback   | `PROJECTS_API_BASE_URL`, `PROJECTS_GRPC_TARGET`                       |
+| Other `/api/projects-service/*` routes                                          | Projects gRPC, supplied proto v0.2 | `PROJECTS_GRPC_TARGET`                                                |
+| POST `/api/hardware`, `/api/listAllocations` and existing hardware write routes | Hardware gRPC                      | `HARDWARE_API_BASE_URL_grpc`, `HARDWARE_API_KEY`, `HARDWARE_API_TEAM` |
 
-The Projects gRPC contract is `server/projects/projects.proto` v0.2.
+The Projects gRPC contract is `server/projects/projects.proto`, aligned with
+the November 22 v1.7 service, including optional membership usernames and price
+source freshness. Generated field numbers/types/presence and all nine RPC
+signatures were checked against service reflection. The schema includes
+DeleteProject, but this app exposes no delete route or button.
 For budget estimates, `server/projects/client.py` also calls the REST transport
 in `server/services/projects.py`.
 Hardware's active transport is documented in `server/hardware/hardware.proto`,
 `server/hardware/hardware_openapi.yaml` and the gRPC adapter. The root `hardware.yaml`
 describes a different REST/session interface; it is not the browser's current transport.
 Endpoint contracts do not prove credentials, reachability or end-to-end acceptance.
+
+## Projects compatibility and cold starts
+
+Set `PROJECTS_API_TIMEOUT_SECONDS=60` or higher in the private server environment.
+Both existing Projects transports enforce a 60-second minimum, including when an
+old `.env` still specifies 10. Invalid/nonfinite settings fail closed. Existing
+read-only gRPC operations retry UNAVAILABLE at most once within one shared
+transport deadline; create/join/leave are never automatically repeated.
+The existing budget HTTP-to-gRPC fallback is retained.
+
+The Procfile loads `gunicorn.conf.py`, whose worker timeout is twice the effective
+Projects budget plus 30 seconds (150 seconds at the standard setting). This avoids
+the default worker timeout interrupting a cold source or the existing budget
+fallback. Check the target platform's router/proxy deadlines separately before
+deployment. Gunicorn itself requires the deployment's supported Unix environment;
+local Flask previews do not exercise its worker lifecycle.
+
+Create, join and leave preserve the service's actual `success`/`error_message`
+as `success`/`errorMessage`; an HTTP 200 alone is not a confirmed mutation.
+The screens require `success: true` before success navigation or allocation.
+Join/leave fetch the authenticated Users profile on the server and require its
+ID and agency to match the validated token before forwarding its username.
+Browser-supplied member names and actor IDs are not trusted. If the profile is
+unavailable or inconsistent, no membership write is sent.
+
+The unit-price adapter returns `dataAsOf` exactly as supplied, or null when absent.
+It describes Austin price-source freshness, not Hardware freshness; the app does
+not invent a time zone. RPC diagnostics include method, status and UTC event time
+with bounded, credential-redacted details, without logging request bodies/tokens.
+
+To regenerate bindings with the matching development compiler:
+
+```powershell
+python -m pip install grpcio-tools==1.85.1
+python -m grpc_tools.protoc -Iserver --python_out=server --grpc_python_out=server server/projects/projects.proto
+```
+
+See [the compatibility review guide](docs/projects-compatibility-review.md) for
+before/after checks, loopback test evidence and the remaining live-delivery gates.
 
 ## Alternate vendor rankings
 

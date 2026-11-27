@@ -63,11 +63,11 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
         userId: profile.id,
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || data?.success !== true) {
         await Swal.fire({
           icon: "error",
           title: "Error",
-          text: data.errorMessage || "Could not leave project",
+          text: data?.errorMessage || "Could not leave project",
         });
         return;
       }
