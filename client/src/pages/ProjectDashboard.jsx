@@ -66,6 +66,12 @@ function AgencyProjects({ agency, userId }) {
         <p className="membership-notice" role="status">
           Leave request saved. Check your current membership in the results
           below.
+          {location.state?.membershipRefreshFailed && (
+            <>
+              {" "}We couldn’t refresh My projects after the change. If the results
+              are unavailable, try again below.
+            </>
+          )}
         </p>
       )}
       <nav className="membership-views" aria-label="Project views">

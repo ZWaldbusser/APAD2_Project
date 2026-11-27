@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { projects } from "../services";
+import { isProjectSummary, membershipIds } from "../projectContext";
 
 export function useMembershipAction(action, project, profile, onSuccess) {
   const pending = useRef(false);
   const active = useRef(true);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [needsSignIn, setNeedsSignIn] = useState(false);
   useEffect(() => {
@@ -47,7 +49,32 @@ export function useMembershipAction(action, project, profile, onSuccess) {
         setError(detail ? `${message} ${detail}` : message);
         return;
       }
-      onSuccess(project);
+      // A confirmed write is never retried because its following read failed.
+      setRefreshing(true);
+      let refreshFailed = false;
+      try {
+        const refreshed = await projects.searchProjects({
+          orgId: profile.agencyCode,
+          userId: profile.id,
+        });
+        if (!refreshed.ok) throw new Error("Projects unavailable");
+        const { projectList } = await refreshed.json();
+        if (
+          !Array.isArray(projectList) ||
+          !projectList.every(
+            (p) =>
+              isProjectSummary(p) &&
+              p.orgId === profile.agencyCode &&
+              membershipIds(p)?.includes(profile.id),
+          ) ||
+          projectList.some((p) => p.projectId === project.projectId) !==
+            (action === "join")
+        )
+          throw new Error("Membership list not confirmed");
+      } catch {
+        refreshFailed = true;
+      }
+      if (active.current) onSuccess(project, refreshFailed);
     } catch {
       if (active.current)
         setError(
@@ -55,11 +82,15 @@ export function useMembershipAction(action, project, profile, onSuccess) {
         );
     } finally {
       pending.current = false;
-      if (active.current) setBusy(false);
+      if (active.current) {
+        setBusy(false);
+        setRefreshing(false);
+      }
     }
   };
   return {
     busy,
+    refreshing,
     error,
     needsSignIn,
     perform,

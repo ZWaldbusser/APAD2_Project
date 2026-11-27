@@ -8,6 +8,7 @@ export default function MembershipDialog({
   onCancel,
   onConfirm,
   busy = false,
+  refreshing = false,
   error,
   needsSignIn,
   onRefresh,
@@ -90,7 +91,11 @@ export default function MembershipDialog({
       </dl>
       {busy && (
         <p role="status">
-          {action === "join" ? "Joining project…" : "Leaving project…"}
+          {refreshing
+            ? "Membership saved. Refreshing My projects…"
+            : action === "join"
+              ? "Joining project…"
+              : "Leaving project…"}
         </p>
       )}
       {error && (

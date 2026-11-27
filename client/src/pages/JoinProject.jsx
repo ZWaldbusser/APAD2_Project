@@ -47,11 +47,20 @@ function JoinForm({ profile, initialId, back }) {
   const project = resource.value;
   const current = Boolean(target && projectId.trim() === target);
   const members = membershipIds(project);
-  const membership = useMembershipAction("join", project, profile, (joined) => {
-    navigate(projectPath(joined), {
-      state: { returnTo: back, membershipNotice: "joined" },
-    });
-  });
+  const membership = useMembershipAction(
+    "join",
+    project,
+    profile,
+    (joined, refreshFailed) => {
+      navigate(projectPath(joined), {
+        state: {
+          returnTo: back,
+          membershipNotice: "joined",
+          membershipRefreshFailed: refreshFailed,
+        },
+      });
+    },
+  );
   useEffect(() => {
     if (current && resource.status === "ready" && project)
       heading.current?.focus();
@@ -189,6 +198,7 @@ function JoinForm({ profile, initialId, back }) {
           onCancel={() => setReview(false)}
           onConfirm={membership.perform}
           busy={membership.busy}
+          refreshing={membership.refreshing}
           error={membership.error}
           needsSignIn={membership.needsSignIn}
           onRefresh={() => {

@@ -38,6 +38,11 @@ beforeEach(() => {
         .joined_users.push(options.body.userId);
       return response({ success: true });
     }
+    if (path === "/projects/leave_project") {
+      const record = records.find((p) => p.projectId === options.body.projectId);
+      record.joined_users = record.joined_users.filter((id) => id !== options.body.userId);
+      return response({ success: true });
+    }
     if (path === "/projects/search_project") {
       const query = options.body;
       return response({
@@ -180,6 +185,137 @@ test("confirmed join uses canonical IDs then reads real membership and refreshes
     await screen.findByRole("link", { name: "Field operations" }),
   ).toBeInTheDocument();
 });
+
+test("successful join refreshes My projects before navigation and keeps confirmation pending during that read", async () => {
+  const user = userEvent.setup();
+  const provider = request.getMockImplementation();
+  let finishRefresh;
+  request.mockImplementation((service, path, options) => {
+    if (path === "/projects/search_project" && options.body.userId) {
+      return new Promise((resolve) => {
+        finishRefresh = () => resolve(provider(service, path, options));
+      });
+    }
+    return provider(service, path, options);
+  });
+  window.history.replaceState({}, "", "/joinproject?projectId=P2&orgId=AUS");
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "Join project" }));
+  const dialog = screen.getByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Join project" }));
+  await waitFor(() => expect(finishRefresh).toBeTypeOf("function"));
+  expect(request).toHaveBeenCalledWith("projects", "/projects/search_project", {
+    method: "POST",
+    body: { orgId: "AUS", projectId: null, userId: "0007" },
+  });
+  expect(window.location.pathname).toBe("/joinproject");
+  expect(within(dialog).getByRole("button", { name: "Join project" })).toBeDisabled();
+  await user.keyboard("{Escape}");
+  expect(dialog).toBeInTheDocument();
+  await act(async () => finishRefresh());
+  expect(await screen.findByText("You’re a member")).toBeInTheDocument();
+  expect(request.mock.calls.filter(([, path]) => path === "/projects/join_project")).toHaveLength(1);
+});
+
+test("leave refreshes My projects even when returning to filtered Discover projects", async () => {
+  const user = userEvent.setup();
+  window.history.replaceState({}, "", "/projects?view=agency&q=Library");
+  render(<App />);
+  await user.click(await screen.findByRole("link", { name: "Library refresh" }));
+  await user.click(await screen.findByRole("button", { name: "Leave project" }));
+  const callStart = request.mock.calls.length;
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Leave project" }));
+  expect(await screen.findByRole("link", { name: "Join Library refresh" })).toBeInTheDocument();
+  expect(screen.getByRole("searchbox")).toHaveValue("Library");
+  expect(new URLSearchParams(window.location.search).get("view")).toBe("agency");
+  expect(request.mock.calls.slice(callStart)).toContainEqual([
+    "projects", "/projects/search_project",
+    { method: "POST", body: { orgId: "AUS", projectId: null, userId: "0007" } },
+  ]);
+});
+
+test("join, leave and rejoin update My projects in one signed-in session", async () => {
+  const user = userEvent.setup();
+  window.history.replaceState({}, "", "/projects?view=mine&q=Field");
+  render(<App />);
+  await screen.findByRole("heading", { name: "No matching projects" });
+  await user.click(screen.getByRole("link", { name: "Discover projects", exact: true }));
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await user.click(await screen.findByRole("link", { name: "Join Field operations" }));
+    await user.click(await screen.findByRole("button", { name: "Join project" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Join project" }));
+    expect(await screen.findByText("You’re a member")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Back to projects", exact: true }));
+    await user.click(screen.getByRole("link", { name: "My projects", exact: true }));
+    expect(await screen.findByRole("link", { name: "Field operations" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toHaveValue("Field");
+    if (attempt === 0) {
+      await user.click(screen.getByRole("link", { name: "Field operations", exact: true }));
+      await user.click(await screen.findByRole("button", { name: "Leave project" }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Leave project" }));
+      await screen.findByRole("heading", { name: "No matching projects" });
+      expect(screen.queryByRole("link", { name: "Field operations" })).not.toBeInTheDocument();
+      expect(screen.getByRole("searchbox")).toHaveValue("Field");
+      await user.click(screen.getByRole("link", { name: "Discover projects", exact: true }));
+    }
+  }
+  expect(localStorage.getItem("token")).toBe("isolated-access-token");
+  expect(request.mock.calls.filter(([service]) => service === "users")).toHaveLength(1);
+  expect(request.mock.calls.filter(([, path]) => path === "/projects/join_project")).toHaveLength(2);
+  expect(request.mock.calls.filter(([, path]) => path === "/projects/leave_project")).toHaveLength(1);
+});
+
+test.each(["join", "leave"])(
+  "a saved %s with an unavailable list refresh gives read-only recovery without repeating the write",
+  async (action) => {
+    const user = userEvent.setup();
+    const provider = request.getMockImplementation();
+    let refreshUnavailable = true;
+    request.mockImplementation((service, path, options) =>
+      path === "/projects/search_project" && options.body.userId && refreshUnavailable
+        ? Promise.resolve(response({ error: "Unavailable" }, 503))
+        : provider(service, path, options),
+    );
+    window.history.replaceState({}, "", action === "join"
+      ? "/joinproject?projectId=P2&orgId=AUS" : "/projects/P1?orgId=AUS");
+    render(<App />);
+    const label = action === "join" ? "Join project" : "Leave project";
+    await user.click(await screen.findByRole("button", { name: label }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: label }));
+    expect(await screen.findByText(/We couldn’t refresh My projects after the change/)).toHaveTextContent(
+      action === "join" ? "Join request saved" : "Leave request saved",
+    );
+    if (action === "leave") await screen.findByRole("button", { name: "Try again" });
+    refreshUnavailable = false;
+    if (action === "join") await user.click(screen.getByRole("link", { name: "Open My projects to check again" }));
+    else await user.click(screen.getByRole("button", { name: "Try again" }));
+    if (action === "join") expect(await screen.findByRole("link", { name: "Field operations" })).toBeInTheDocument();
+    else await screen.findByRole("heading", { name: "No projects joined yet" });
+    expect(request.mock.calls.filter(([, path]) => path === `/projects/${action}_project`)).toHaveLength(1);
+  },
+);
+
+test.each(["stale", "malformed"])(
+  "a saved join with a %s list response does not claim that My projects refreshed",
+  async (state) => {
+    const user = userEvent.setup();
+    const provider = request.getMockImplementation();
+    request.mockImplementation((service, path, options) =>
+      path === "/projects/search_project" && options.body.userId
+        ? Promise.resolve(response(state === "stale" ? { projectList: [] } : {}))
+        : provider(service, path, options),
+    );
+    window.history.replaceState({}, "", "/joinproject?projectId=P2&orgId=AUS");
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Join project" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Join project" }),
+    );
+    expect(await screen.findByText(/We couldn’t refresh My projects after the change/)).toHaveTextContent("Join request saved");
+    expect(await screen.findByText("You’re a member")).toBeInTheDocument();
+    expect(request.mock.calls.filter(([, path]) => path === "/projects/join_project")).toHaveLength(1);
+  },
+);
 
 test("canceling leave keeps membership, sends no write and restores the trigger", async () => {
   const user = userEvent.setup();
