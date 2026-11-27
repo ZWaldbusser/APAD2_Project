@@ -6,8 +6,8 @@ sending, a new service or a different agency policy.
 
 ## Before and after
 
-- Before: <http://127.0.0.1:5060/projects>, main `5228801` with its previous 10s setting.
-- After: <http://127.0.0.1:5061/projects>, branch `codex/projects-v17-compatibility`.
+- Before: <http://127.0.0.1:5070/projects>, main `5228801` with its previous 10s setting.
+- After: <http://127.0.0.1:5071/projects>, branch `codex/projects-v17-compatibility`.
 
 These are local previews on Rohan's laptop, using real adapters and the existing
 private configuration. They require real authorized login/MFA. Their screens
@@ -78,7 +78,7 @@ Leave `VITE_API_BASE_URL` empty for a same-origin preview, build the client, and
 
 ```powershell
 npm run build --prefix client
-python -m flask --app server/app.py run --host 127.0.0.1 --port 5061
+python -m flask --app server/app.py run --host 127.0.0.1 --port 5071
 ```
 
 Use baseline `5228801fe7597c50497ae64ceb61455057ca1023` in another checkout for
