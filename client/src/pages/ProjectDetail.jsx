@@ -45,9 +45,19 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
   const members = membershipIds(project);
   const isMember = members?.includes(profile.id);
   const [review, setReview] = useState(false);
-  const membership = useMembershipAction("leave", project, profile, () => {
-    navigate(back, { state: { membershipNotice: "left" } });
-  });
+  const membership = useMembershipAction(
+    "leave",
+    project,
+    profile,
+    (_, refreshFailed) => {
+      navigate(back, {
+        state: {
+          membershipNotice: "left",
+          membershipRefreshFailed: refreshFailed,
+        },
+      });
+    },
+  );
 
   if (resource.status === "loading")
     return (
@@ -211,6 +221,7 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
           onCancel={() => setReview(false)}
           onConfirm={membership.perform}
           busy={membership.busy}
+          refreshing={membership.refreshing}
           error={membership.error}
           needsSignIn={membership.needsSignIn}
           onRefresh={() => {
@@ -242,6 +253,12 @@ export default function ProjectDetail() {
       {location.state?.membershipNotice === "joined" && (
         <p className="membership-notice" role="status">
           Join request saved. Check your current membership below.
+          {location.state?.membershipRefreshFailed && (
+            <>
+              {" "}We couldn’t refresh My projects after the change.{" "}
+              <Link to="/projects?view=mine">Open My projects to check again</Link>.
+            </>
+          )}
         </p>
       )}
       {profile.status === "loading" ? (
