@@ -1,6 +1,7 @@
 // Shared HTTP layer for all backend services.
 
 import { SERVICE_URLS } from "../config";
+import { recordFreshness } from "./freshness";
 
 export function getToken() {
   try {
@@ -13,6 +14,8 @@ export function getToken() {
 function handleUnauthorized(res) {
   if (res.status === 401 && window.location.pathname !== "/login") {
     localStorage.removeItem("token");
+    sessionStorage.removeItem("mfaToken");
+    sessionStorage.setItem("authNotice", "session-ended");
     window.location.href = "/login";
   }
 }
@@ -45,5 +48,15 @@ export async function request(service, path, options = {}) {
   );
 
   if (auth && service === "users") handleUnauthorized(res);
+  if (res.ok && (service === "hardware" || service === "projects")) {
+    try {
+      const payload = await res.clone().json();
+      if (token === getToken()) {
+        recordFreshness(JSON.stringify([service, path, method, body]), service, payload.meta);
+      }
+    } catch {
+      // The consumer handles malformed responses. Preserve the original body.
+    }
+  }
   return res;
 }

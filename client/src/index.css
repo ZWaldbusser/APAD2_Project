@@ -2,6 +2,11 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 18px;
+  -webkit-text-size-adjust: 100%;
+}
+
 html,
 body,
 #root {
@@ -13,4 +18,5 @@ body {
   font-family: sans-serif;
   background: #f4f4f4;
   color: #1f1f1f;
+  line-height: 1.6;
 }

@@ -1,75 +1,96 @@
-body {
-  margin: 0;
-}
-
 .resource-main {
-  padding: 20px 30px;
+  --equipment-accent: #85400f;
+  --equipment-soft: #f7f1eb;
 }
-
-.resource-main h2 {
-  margin: 0 0 16px;
+.resource-heading { margin-bottom: 28px; }
+.resource-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0 0 28px;
 }
-
-.resource-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 650px;
+.resource-summary > div {
+  padding: 20px 24px;
+  border: 1px solid #e5e1dc;
+  border-radius: 12px;
+  background: #faf9f7;
 }
-
-.resource-table th {
-  text-align: left;
-  padding: 10px 12px;
-  border-bottom: 2px solid #ddd;
-  font-size: 14px;
-  color: #555;
+.resource-summary > div:last-child { background: var(--equipment-soft); border-color: #e8d8c9; }
+.resource-summary dt { color: var(--workspace-muted); font-size: .85rem; }
+.resource-summary dd { margin: 8px 0 0; font-size: 1.9rem; font-weight: 700; line-height: 1.2; }
+.resource-summary > div:last-child dd { color: var(--equipment-accent); }
+.resource-inventory { border: 1px solid #e5e1dc; border-radius: 12px; overflow: hidden; background: #fff; }
+.resource-section-heading { padding: 22px 24px; border-bottom: 1px solid #e5e1dc; }
+.resource-section-heading h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.resource-section-heading p { color: var(--workspace-muted); font-size: .85rem; }
+.resource-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.resource-table th { padding: 14px 16px; background: #faf9f7; color: var(--workspace-muted); font-size: .75rem; font-weight: 600; text-align: left; }
+.resource-table td { padding: 22px 16px; border-top: 1px solid #edeae6; vertical-align: middle; }
+.resource-table th:first-child, .resource-table td:first-child { padding-left: 24px; }
+.resource-item { font-weight: 650; overflow-wrap: anywhere; }
+.resource-availability { display: inline-flex; justify-content: center; min-width: 34px; padding: 3px 9px; border-radius: 6px; background: var(--equipment-soft); color: var(--equipment-accent); font-weight: 700; }
+.resource-availability.is-empty { color: #737780; background: #edeef0; }
+.resource-action-card { display: grid; gap: 6px; margin: 0; }
+.resource-action-controls { display: flex; align-items: center; gap: 8px; }
+.resource-action-controls input {
+  width: 66px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid #a5a19c;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--workspace-ink);
+  font-size: .9rem;
 }
-
-.resource-table td {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
+.resource-action-controls input::placeholder { color: #737780; }
+.resource-action-controls button {
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 9px 14px;
+  border: 1px solid var(--equipment-accent);
+  border-radius: 7px;
+  font-size: .85rem;
+  font-weight: 700;
+  transition: background-color .15s, border-color .15s;
 }
-
-.resource-table tr:last-child td {
-  border-bottom: none;
+.checkin-submit-btn { background: var(--equipment-soft); color: var(--equipment-accent); }
+.checkout-submit-btn { background: var(--equipment-accent); color: #fff; }
+.checkin-submit-btn:hover:not(:disabled) { background: #eee0d3; }
+.checkout-submit-btn:hover:not(:disabled) { background: #68320c; border-color: #68320c; }
+.resource-action-controls button:disabled, .resource-action-controls input:disabled {
+  background: #edeef0;
+  color: #737780;
+  border-color: #e0e2e5;
+  cursor: not-allowed;
 }
-
-.resource-table input[type="number"] {
-  width: 60px;
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  text-align: center;
-  margin-right: 8px;
+.resource-action-hint { font-size: .75rem; color: var(--workspace-muted); }
+.resource-empty { padding: 32px 24px; color: var(--workspace-muted); }
+.resource-success, .resource-error { padding: 14px 18px; margin: 0 0 20px !important; border: 1px solid; border-radius: 8px; font-size: .9rem; }
+.resource-success { background: #f0f5ef; color: #345137; border-color: #cddccc; }
+.resource-error { background: #fcf2ef; color: #8c3928; border-color: #e9cfc7; }
+@media (min-width: 1251px) and (max-width: 1350px) {
+  .resource-table th, .resource-table td { padding-left: 10px; padding-right: 10px; }
+  .resource-action-controls { gap: 5px; }
+  .resource-action-controls button { padding-inline: 10px; }
+  .resource-action-controls input { width: 58px; }
 }
-
-.resource-main {
-  overflow-x: auto;
+@media (max-width: 1250px) {
+  .resource-table, .resource-table tbody { display: block; }
+  .resource-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+  .resource-table tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 24px; border-top: 1px solid #edeae6; }
+  .resource-table tr:first-child { border-top: 0; }
+  .resource-table td, .resource-table td:first-child { display: block; border: 0; padding: 0; }
+  .resource-table td[data-label]:not(.resource-item)::before { content: attr(data-label); display: block; margin-bottom: 6px; color: var(--workspace-muted); font-size: .75rem; }
+  .resource-table .resource-item { grid-column: 1 / -1; font-size: 1rem; }
+  .resource-table .resource-action-cell { grid-column: 1 / -1; }
+  .resource-action-controls input { width: 84px; }
+  .resource-action-controls button { flex: 1; }
 }
-
-.checkout-submit-btn {
-  padding: 8px 24px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: white;
-  color: black;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.checkout-submit-btn:hover {
-  background: #f5f5f5;
-}
-
-.checkin-submit-btn {
-  padding: 8px 24px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: white;
-  color: black;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.checkin-submit-btn:hover {
-  background: #f5f5f5;
+@media (max-width: 560px) {
+  .resource-summary { gap: 8px; }
+  .resource-summary > div { padding: 14px 10px; }
+  .resource-summary dt { font-size: .75rem; }
+  .resource-summary dd { font-size: 1.5rem; }
+  .resource-section-heading { padding: 20px; }
+  .resource-table tr { padding: 20px; }
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import "../styles/PageHeader.css";
 import { getCurrentUser } from "../services/users";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 function PageHeader({ title = "HaaS Hub" }) {
   const [userName, setUserName] = useState("Guest");
   const location = useLocation();

@@ -238,3 +238,6 @@ tempCodeRunnerFile.py
 
 # PyPI configuration file
 .pypirc
+
+# Microsoft Office lock files
+~$*

@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from request_scope import agency_data, json_object, reject, require_text
 from projects.client import (
     create_project, join_project, leave_project,
@@ -21,7 +21,10 @@ def create_blueprint(token_required):
     @token_required
     def project_detail(project_id):
         org_id = agency_data(request.args)["orgId"]
-        status, payload = get_project(project_id, org_id)
+        status, payload = current_app.extensions["edge"].read(
+            "projects", "detail", org_id, {"projectId": project_id},
+            lambda: get_project(project_id, org_id),
+        )
         return jsonify(payload), status
 
     @routes.route("/projects/create_project", methods=["POST"])
@@ -113,7 +116,9 @@ def create_blueprint(token_required):
         if any(data.get(key) not in (None, "") for key in ("userId", "user_id")):
             data["userId"] = request.user_id
         data.pop("user_id", None)
-        status, payload = search_projects(data)
+        status, payload = current_app.extensions["edge"].read(
+            "projects", "search", request.agency_code, data, lambda: search_projects(data),
+        )
         return jsonify(payload), status
 
     @routes.route("/get_unit_price", methods=["POST"])

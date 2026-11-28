@@ -97,7 +97,7 @@
 }
 .creation-optional {
   color: var(--brand-orange);
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   margin: 0 0 12px;
@@ -121,7 +121,7 @@
   font-size: 0.8rem;
 }
 .creation-hardware-row .creation-field label {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 .creation-hardware-row .creation-allocated {
   color: #24653c;
