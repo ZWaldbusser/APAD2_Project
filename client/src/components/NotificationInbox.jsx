@@ -2,7 +2,7 @@ import { Component, useState } from "react";
 import { Inbox } from "@novu/react";
 import { USE_MOCKS } from "../config";
 
-const NOVU_APP_ID = "w7tJlfaANocl";
+const NOVU_APP_ID = "OKvqutCb0f1f";
 
 function BellIcon({ count = 0, onClick }) {
   return (

@@ -61,13 +61,14 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
         orgId,
         projectId,
         userId: profile.id,
+        userName: profile.name || undefined,
       });
       const data = await res.json();
       if (!res.ok) {
         await Swal.fire({
           icon: "error",
           title: "Error",
-          text: data.errorMessage || "Could not leave project",
+          text: data.errorMessage || data.error || "Could not leave project",
         });
         return;
       }
@@ -75,6 +76,50 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
         icon: "success",
         title: "Left Project",
         text: "You have left the project.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      navigate("/projects");
+    } catch {
+      await Swal.fire({
+        icon: "error",
+        title: "Connection Error",
+        text: "Could not reach server.",
+      });
+    }
+  };
+
+  const isCreator = project?.creatorId && String(project.creatorId) === profile.id;
+
+  const handleDelete = async () => {
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Delete Project?",
+      text: "This will permanently delete the project and release all hardware reservations. This cannot be undone.",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete",
+      confirmButtonColor: "#d33",
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      const res = await projectsApi.deleteProject({
+        orgId,
+        projectId,
+        userId: profile.id,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        await Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: data.errorMessage || data.error || "Could not delete project",
+        });
+        return;
+      }
+      await Swal.fire({
+        icon: "success",
+        title: "Project Deleted",
+        text: "The project has been deleted.",
         timer: 1500,
         showConfirmButton: false,
       });
@@ -221,9 +266,16 @@ function ProjectRecord({ orgId, projectId, profile, back }) {
         <Link to={back} className="workspace-text-link">
           Back to projects
         </Link>
-        <button className="workspace-button secondary" onClick={handleLeave}>
-          Leave project
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {isCreator && (
+            <button className="workspace-button secondary" style={{ color: "#d33", borderColor: "#d33" }} onClick={handleDelete}>
+              Delete project
+            </button>
+          )}
+          <button className="workspace-button secondary" onClick={handleLeave}>
+            Leave project
+          </button>
+        </div>
       </div>
     </>
   );

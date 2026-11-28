@@ -1,4 +1,4 @@
-// Browser HTTP contract; Flask maps it to the supplied Projects v0.2 gRPC schema.
+// Browser HTTP contract; Flask maps it to the Projects v1.7 gRPC schema.
 
 import { request } from "./http";
 
@@ -12,14 +12,20 @@ export const createProject = ({ orgId, projectId, projectName, projectDesc, crea
     body: { orgId, projectId, projectName, projectDesc: projectDesc || "", creatorId, budget, hardwareList: hardwareList || [] },
   });
 
-export const joinProject = ({ orgId, projectId, userId }) =>
+export const joinProject = ({ orgId, projectId, userId, userName }) =>
   request("projects", "/projects/join_project", {
     method: "POST",
-    body: { orgId, projectId, userId },
+    body: { orgId, projectId, userId, ...(userName ? { userName } : {}) },
   });
 
-export const leaveProject = ({ orgId, projectId, userId }) =>
+export const leaveProject = ({ orgId, projectId, userId, userName }) =>
   request("projects", "/projects/leave_project", {
+    method: "POST",
+    body: { orgId, projectId, userId, ...(userName ? { userName } : {}) },
+  });
+
+export const deleteProject = ({ orgId, projectId, userId }) =>
+  request("projects", "/projects/delete_project", {
     method: "POST",
     body: { orgId, projectId, userId },
   });

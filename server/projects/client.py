@@ -31,6 +31,7 @@ class ProjectsServiceError(RuntimeError):
 
 _HTTP_STATUS = {
     grpc.StatusCode.INVALID_ARGUMENT: 400,
+    grpc.StatusCode.PERMISSION_DENIED: 403,
     grpc.StatusCode.FAILED_PRECONDITION: 409,
     grpc.StatusCode.NOT_FOUND: 404,
     grpc.StatusCode.ALREADY_EXISTS: 409,
@@ -178,16 +179,22 @@ def create_project(data):
 
 
 def join_project(data):
-    call("JoinProject", messages.MembershipRequest(
+    req = messages.MembershipRequest(
         org_id=data["orgId"], project_id=data["projectId"], user_id=data["userId"],
-    ))
+    )
+    if data.get("userName"):
+        req.user_name = data["userName"]
+    call("JoinProject", req)
     return 200, {"success": True, "errorMessage": ""}
 
 
 def leave_project(data):
-    call("LeaveProject", messages.MembershipRequest(
+    req = messages.MembershipRequest(
         org_id=data["orgId"], project_id=data["projectId"], user_id=data["userId"],
-    ))
+    )
+    if data.get("userName"):
+        req.user_name = data["userName"]
+    call("LeaveProject", req)
     return 200, {"success": True, "errorMessage": ""}
 
 
@@ -216,9 +223,16 @@ def get_project(project_id, org_id):
     return 200, {"projectInfo": _project(resp.project_info)}
 
 
+def delete_project(data):
+    call("DeleteProject", messages.DeleteProjectRequest(
+        org_id=data["orgId"], project_id=data["projectId"], user_id=data["userId"],
+    ))
+    return 200, {"success": True, "errorMessage": ""}
+
+
 def get_unit_price(data):
     resp = call("GetUnitPrice", messages.GetUnitPriceRequest(category=data["category"]))
-    return 200, {
+    result = {
         "success": True,
         "category": resp.category,
         "unitPrice": {
@@ -227,6 +241,9 @@ def get_unit_price(data):
             "Texas": _source_unit_price(resp.texas),
         },
     }
+    if resp.data_as_of:
+        result["dataAsOf"] = resp.data_as_of
+    return 200, result
 
 
 def get_department_spend(data):
