@@ -141,7 +141,7 @@ export default function WorkspaceLayout() {
               className="workspace-logout"
               onClick={() => {
                 logout();
-                navigate("/login");
+                navigate("/login", { state: { notice: "signed-out" } });
               }}
             >
               Log out
