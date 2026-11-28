@@ -1,12 +1,17 @@
 """Browser routes for the Projects API contract (gRPC transport)."""
 
+import logging
+
 from flask import Blueprint, current_app, jsonify, request
 from request_scope import agency_data, json_object, reject, require_text
 from projects.client import (
     create_project, join_project, leave_project,
-    search_projects, get_project, get_unit_price,
-    get_department_spend, get_budget_context,
+    search_projects, get_project, delete_project,
+    get_unit_price, get_department_spend, get_budget_context,
 )
+import hardwareDatabase as hardware_db
+
+log = logging.getLogger(__name__)
 
 
 def create_blueprint(token_required):
@@ -47,6 +52,8 @@ def create_blueprint(token_required):
     def join():
         data = agency_data(json_object())
         data["userId"] = request.user_id
+        if data.get("userName"):
+            data["userName"] = str(data["userName"])
         require_text(data, "projectId")
         status, payload = join_project(data)
         return jsonify(payload), status
@@ -56,8 +63,50 @@ def create_blueprint(token_required):
     def leave():
         data = agency_data(json_object())
         data["userId"] = request.user_id
+        if data.get("userName"):
+            data["userName"] = str(data["userName"])
         require_text(data, "projectId")
         status, payload = leave_project(data)
+        return jsonify(payload), status
+
+    @routes.route("/projects/delete_project", methods=["POST"])
+    @token_required
+    def delete():
+        data = agency_data(json_object())
+        data["userId"] = request.user_id
+        require_text(data, "projectId")
+        project_id = data["projectId"]
+        org_id = data["orgId"]
+
+        _, project_data = get_project(project_id, org_id)
+        project_info = project_data.get("projectInfo", project_data)
+        if str(project_info.get("creatorId")) != str(request.user_id):
+            reject("Only the project creator can delete this project", 403)
+
+        _, alloc_data = hardware_db.get_allocations({"projectId": project_id})
+        allocs = [a for a in alloc_data.get("items", []) if a.get("quantity", 0) > 0]
+        if allocs:
+            hw_versions = {}
+            hw_data = hardware_db.get_all_hardware()
+            for item in hw_data.get("items", []):
+                hw_versions[item["id"]] = item["version"]
+            for alloc in allocs:
+                hw_id = alloc["hardware_id"]
+                version = hw_versions.get(hw_id)
+                if version is None:
+                    log.warning("No hardware pool found for %s, skipping release", hw_id)
+                    continue
+                try:
+                    hardware_db.set_allocation(hw_id, project_id, {
+                        "expected_version": version,
+                        "quantity": 0,
+                        "reason": f"Project {project_id} deleted by creator",
+                    })
+                except Exception as exc:
+                    log.warning("Failed to release allocation %s for project %s: %s",
+                                hw_id, project_id, exc)
+
+        status, payload = delete_project(data)
         return jsonify(payload), status
 
     @routes.route("/projects/search_project", methods=["POST"])

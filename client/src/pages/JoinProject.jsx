@@ -33,11 +33,12 @@ function JoinProject() {
         orgId: currentUser.agencyCode,
         projectId: projectID.trim(),
         userId: String(currentUser.id),
+        userName: currentUser.username || undefined,
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.errorMessage || "Could not join project");
+        setError(data.errorMessage || data.error || "Could not join project");
         return;
       }
 
