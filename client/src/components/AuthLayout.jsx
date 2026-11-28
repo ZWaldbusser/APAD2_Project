@@ -32,7 +32,7 @@ export default function AuthLayout() {
             H
           </span>
           <span>
-            HaaS Hub<small>CIVIC WORKSPACE</small>
+            HaaS Hub
           </span>
         </Link>
         <div className="auth-brand-content">

@@ -6,10 +6,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { agencyNames } from "../projectContext";
 import NotificationInbox from "./NotificationInbox";
+import SavedDataBanner from "./SavedDataBanner";
 import "../styles/Workspace.css";
 
 function Icon({ name }) {
@@ -98,7 +99,7 @@ export default function WorkspaceLayout() {
             H
           </span>
           <span>
-            HaaS Hub<small>CIVIC WORKSPACE</small>
+            HaaS Hub
           </span>
         </Link>
         <button
@@ -172,6 +173,7 @@ export default function WorkspaceLayout() {
           className="workspace-content"
           tabIndex={-1}
         >
+          <SavedDataBanner />
           <Outlet />
         </div>
         <footer className="workspace-footer">

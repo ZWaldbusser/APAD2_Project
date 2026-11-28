@@ -13,6 +13,10 @@ from projects_support import start_projects
 
 class ProjectsApiTests(unittest.TestCase):
     def setUp(self):
+        from edge import Edge
+        edge_patch = patch.dict(app.app.extensions, {"edge": Edge()})
+        edge_patch.start()
+        self.addCleanup(edge_patch.stop)
         self.headers = authenticate(self)
         self.provider = start_projects(self, [
             messages.Project(org_id="AUS", project_id="P1", project_name="Member project",
@@ -28,10 +32,11 @@ class ProjectsApiTests(unittest.TestCase):
         response = self.http.post("/api/projects-service/projects/search_project",
                                   headers=self.headers, json={"userId": "user-1"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {"projectList": [{
+        self.assertEqual(response.json["meta"], {"source": "live", "stale": False, "service": "projects"})
+        self.assertEqual(response.json["projectList"], [{
             "orgId": "AUS", "projectId": "P1", "projectName": "Member project",
             "joined_users": ["user-1", "0007"],
-        }]})
+        }])
         self.assertEqual(self.provider.calls[0][1].user_id, "user-1")
 
     def test_unfiltered_discovery_is_still_limited_to_verified_agency(self):

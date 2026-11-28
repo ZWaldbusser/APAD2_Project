@@ -3,10 +3,15 @@ import { Link, useSearchParams } from "react-router-dom";
 import { projects as projectsApi } from "../services";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useRead } from "../hooks/useRead";
-import { agencyNames, isProjectSummary, projectPath } from "../projectContext";
+import {
+  agencyNames,
+  isIdentifier,
+  isProjectSummary,
+  projectPath,
+} from "../projectContext";
 import WorkspaceState from "../components/WorkspaceState";
 
-function AgencyProjects({ agency }) {
+function AgencyProjects({ agency, userId }) {
   const [params, setParams] = useSearchParams();
   const search = params.get("q") || "";
   const load = useCallback(async () => {
@@ -22,7 +27,34 @@ function AgencyProjects({ agency }) {
     return data.projectList.filter((project) => project.orgId === agency);
   }, [agency]);
   const resource = useRead(load, agency);
+  const loadMemberships = useCallback(async () => {
+    const res = await projectsApi.searchProjects({ orgId: agency, userId });
+    if (!res.ok) throw new Error("Project membership unavailable");
+    const data = await res.json();
+    if (
+      !Array.isArray(data.projectList) ||
+      !data.projectList.every(
+        (project) =>
+          isProjectSummary(project) &&
+          Array.isArray(project.joined_users) &&
+          project.joined_users.every(isIdentifier),
+      )
+    )
+      throw new Error("Invalid project membership");
+    return new Set(
+      data.projectList
+        .filter(
+          (project) =>
+            project.orgId === agency &&
+            project.joined_users.some((id) => String(id) === String(userId)),
+        )
+        .map((project) => project.projectId),
+    );
+  }, [agency, userId]);
+  const memberships = useRead(loadMemberships, JSON.stringify([agency, userId]));
   const projects = resource.value || [];
+  const memberProjectIds =
+    memberships.status === "ready" ? memberships.value : new Set();
   const term = search.trim().toLocaleLowerCase();
   const filtered = projects.filter(
     (project) =>
@@ -84,6 +116,21 @@ function AgencyProjects({ agency }) {
         </WorkspaceState>
       ) : (
         <>
+          {memberships.status === "loading" && (
+            <p role="status">Checking project membership…</p>
+          )}
+          {memberships.status === "error" && (
+            <p className="workspace-membership-error" role="alert">
+              We couldn’t verify project membership, so equipment access is
+              disabled.
+              <button
+                className="workspace-text-link"
+                onClick={memberships.retry}
+              >
+                Retry membership check
+              </button>
+            </p>
+          )}
           <p
             className="workspace-result-count"
             role="status"
@@ -137,13 +184,28 @@ function AgencyProjects({ agency }) {
                     </h2>
                     <p>{agencyNames[project.orgId]}</p>
                   </div>
-                  <Link
-                    className="workspace-button secondary workspace-project-equipment"
-                    to={projectPath(project, "/resources")}
-                    aria-label={`Manage equipment for ${project.projectName}`}
-                  >
-                    Manage equipment
-                  </Link>
+                  {memberProjectIds.has(project.projectId) ? (
+                    <Link
+                      className="workspace-button workspace-equipment-link workspace-project-equipment"
+                      to={projectPath(project, "/resources")}
+                      aria-label={`Manage equipment for ${project.projectName}`}
+                    >
+                      Manage equipment
+                    </Link>
+                  ) : (
+                    <button
+                      className="workspace-button workspace-equipment-link workspace-project-equipment"
+                      disabled
+                      aria-label={`Manage equipment for ${project.projectName}`}
+                      title={
+                        memberships.status === "ready"
+                          ? "Join this project to manage its equipment."
+                          : "Equipment access is disabled until membership is confirmed."
+                      }
+                    >
+                      Manage equipment
+                    </button>
+                  )}
                   <span className="workspace-card-arrow" aria-hidden="true">
                     ↗
                   </span>
@@ -208,7 +270,11 @@ export default function ProjectDashboard() {
           your agency before browsing projects.
         </WorkspaceState>
       ) : (
-        <AgencyProjects key={agency} agency={agency} />
+        <AgencyProjects
+          key={agency}
+          agency={agency}
+          userId={profile.value.id}
+        />
       )}
     </main>
   );
