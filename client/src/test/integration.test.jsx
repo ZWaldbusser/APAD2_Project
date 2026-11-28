@@ -165,6 +165,13 @@ test("legacy Visualization opens Integration and ranks vendors even when summary
     method: "POST",
     body: { projectId: "P1", hardwareId: "H1", quantity: 10 },
   });
+  await user.click(screen.getByRole("button", { name: "Refresh inventory" }));
+  await screen.findByRole("button", { name: "Refresh inventory" });
+  expect(screen.getByLabelText("Project")).toHaveValue("P1");
+  expect(screen.getByLabelText("Hardware")).toHaveValue("H1");
+  expect(quantity).toHaveValue(10);
+  expect(list.getByRole("button", { name: "Save Certified supplier to watchlist" })).toBeInTheDocument();
+  expect(request.mock.calls.filter(([, path]) => path === "/api/integration/vendor-rankings")).toHaveLength(1);
 });
 
 test("retry reloads only the service that failed to populate the ranking form", async () => {
@@ -190,12 +197,13 @@ test("retry reloads only the service that failed to populate the ranking form", 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not load your projects from the Projects service.",
   );
+  const hardwareReads = request.mock.calls.filter(([, path]) => path === "/api/hardware").length;
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByLabelText("Project")).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "Desktop PC (out of stock)" })).toBeInTheDocument();
   expect(projectRequests).toBe(2);
-  expect(request.mock.calls.filter(([, path]) => path === "/api/hardware")).toHaveLength(1);
+  expect(request.mock.calls.filter(([, path]) => path === "/api/hardware")).toHaveLength(hardwareReads);
 });
 
 test("selecting in-stock hardware reports stock status after comparison", async () => {

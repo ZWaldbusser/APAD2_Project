@@ -18,5 +18,8 @@ test("the retained Overview sample is explicitly labelled and invents no provide
     "not live agency or inventory figures",
   );
   expect(screen.queryByText(/^Updated/)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Reload sample" }),
+  ).toBeInTheDocument();
   expect(transport).not.toHaveBeenCalled();
 });
