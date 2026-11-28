@@ -1,0 +1,124 @@
+.membership-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+.membership-views a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--workspace-control-line);
+  border-radius: 6px;
+  color: var(--workspace-ink);
+  text-decoration: none;
+}
+.membership-views a[aria-current="page"] {
+  border: 2px solid var(--brand-orange);
+  padding: 9px 17px;
+  color: var(--brand-orange);
+  font-weight: 650;
+}
+.membership-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.membership-status {
+  font-weight: 600;
+}
+.membership-form {
+  max-width: 850px;
+  padding: 28px;
+}
+.membership-form h1 {
+  margin-top: 0;
+}
+.membership-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 24px 0;
+}
+.membership-fields label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.membership-fields input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--workspace-control-line);
+  border-radius: 6px;
+  color: var(--workspace-ink);
+  background: var(--brand-white);
+}
+.membership-fields input[readonly] {
+  background: #f5f6f7;
+}
+.membership-form-actions,
+.membership-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+.membership-review {
+  padding: 28px;
+  margin-top: 24px;
+  max-width: 850px;
+}
+.membership-review h2 {
+  overflow-wrap: anywhere;
+}
+.membership-required,
+.membership-error {
+  color: #a32121;
+}
+.membership-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 28px;
+  margin: auto;
+  overflow-y: auto;
+  border: 1px solid var(--workspace-line);
+  border-radius: 12px;
+  color: var(--workspace-ink);
+  background: var(--brand-white);
+}
+.membership-dialog::backdrop {
+  background: rgb(20 23 29 / 45%);
+}
+.membership-dialog h2 {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+.membership-dialog button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+@media (max-width: 760px) {
+  .membership-card-actions {
+    width: 100%;
+  }
+  .membership-card-actions a {
+    flex: 1;
+  }
+}
+@media (max-width: 540px) {
+  .membership-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .membership-form,
+  .membership-review,
+  .membership-dialog {
+    padding: 20px;
+  }
+  .membership-dialog-actions > button {
+    flex: 1;
+  }
+}

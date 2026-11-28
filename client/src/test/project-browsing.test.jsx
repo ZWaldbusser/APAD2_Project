@@ -12,8 +12,9 @@ const summaries = [
     orgId: "AUS",
     projectId: "P1 / north",
     projectName: "Library network refresh",
+    joined_users: ["u1"],
   },
-  { orgId: "AUS", projectId: "P2", projectName: "Field operations" },
+  { orgId: "AUS", projectId: "P2", projectName: "Field operations", joined_users: [] },
 ];
 const detail = {
   ...summaries[0],
@@ -30,7 +31,7 @@ const response = (data, status = 200) =>
 
 beforeEach(() => {
   localStorage.setItem("token", "mock-token.u1");
-  window.history.replaceState({}, "", "/projects");
+  window.history.replaceState({}, "", "/projects?view=agency");
   request.mockReset();
   request.mockImplementation(async (service, path) => {
     if (service === "users") return response({ user: profile });
@@ -176,8 +177,8 @@ test("searches by name and ID, preserves both identifiers, and returns to the se
     expect.objectContaining({ body: { orgId: "AUS", projectId: null } }),
   );
   expect(
-    within(screen.getByRole("main")).queryByText("My projects"),
-  ).not.toBeInTheDocument();
+    within(screen.getByRole("main")).getByRole("link", { name: "Discover projects" }),
+  ).toHaveAttribute("aria-current", "page");
 });
 
 test.each([

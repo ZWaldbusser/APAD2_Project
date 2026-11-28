@@ -57,12 +57,12 @@ test.each([false, true])('password → MFA → authenticated workspace preserves
   await user.click(screen.getByRole('button', { name: returning ? 'Verify' : 'Enable Two-Factor', exact: true }));
   const projects = await screen.findByRole('link', { name: 'Projects', exact: true }, { timeout: 4000 });
   await user.click(projects);
-  expect(await screen.findByRole('heading', { name: 'No agency projects yet' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'No projects joined yet' })).toBeInTheDocument();
   expect(screen.getByText('staff')).toBeInTheDocument();
   expect(localStorage.getItem('token')).toBe('final-access');
   expect(sessionStorage.getItem('mfaToken')).toBeNull();
   expect(transport).toHaveBeenCalledWith(`/api/users-service/2fa/${returning ? 'verify' : 'enable'}`, expect.objectContaining({ method: 'POST', body: JSON.stringify({ code: '123456' }), headers: expect.objectContaining({ Authorization: 'Bearer temporary-mfa' }) }));
-  expect(transport).toHaveBeenCalledWith('/api/projects-service/projects/search_project', expect.objectContaining({ body: JSON.stringify({ orgId: 'AUS', projectId: null }), headers: expect.objectContaining({ Authorization: 'Bearer final-access' }) }));
+  expect(transport).toHaveBeenCalledWith('/api/projects-service/projects/search_project', expect.objectContaining({ body: JSON.stringify({ orgId: 'AUS', projectId: null, userId: '7' }), headers: expect.objectContaining({ Authorization: 'Bearer final-access' }) }));
 }, 10000);
 
 test('a rejected MFA code keeps the user outside the workspace', async () => {

@@ -1,16 +1,28 @@
 import { useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { projects as projectsApi } from "../services";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useRead } from "../hooks/useRead";
-import { agencyNames, isProjectSummary, projectPath } from "../projectContext";
+import {
+  agencyNames,
+  isProjectSummary,
+  membershipIds,
+  projectJoinPath,
+  projectPath,
+} from "../projectContext";
 import WorkspaceState from "../components/WorkspaceState";
+import "../styles/Membership.css";
 
-function AgencyProjects({ agency }) {
+function AgencyProjects({ agency, userId }) {
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const search = params.get("q") || "";
+  const scope = params.get("view") === "agency" ? "agency" : "mine";
   const load = useCallback(async () => {
-    const res = await projectsApi.searchProjects({ orgId: agency });
+    const res = await projectsApi.searchProjects({
+      orgId: agency,
+      ...(scope === "mine" ? { userId } : {}),
+    });
     if (!res.ok) throw new Error("Projects unavailable");
     const data = await res.json();
     if (
@@ -18,10 +30,16 @@ function AgencyProjects({ agency }) {
       !data.projectList.every(isProjectSummary)
     )
       throw new Error("Invalid projects");
-    // A UI filter is not a server authorization boundary.
-    return data.projectList.filter((project) => project.orgId === agency);
-  }, [agency]);
-  const resource = useRead(load, agency);
+    // Defense in depth; the adapter enforces the verified-agency policy.
+    const agencyProjects = data.projectList.filter((p) => p.orgId === agency);
+    if (
+      scope === "mine" &&
+      agencyProjects.some((p) => !membershipIds(p)?.includes(userId))
+    )
+      throw new Error("Unverified membership results");
+    return agencyProjects;
+  }, [agency, scope, userId]);
+  const resource = useRead(load, JSON.stringify([agency, scope, userId]));
   const projects = resource.value || [];
   const term = search.trim().toLocaleLowerCase();
   const filtered = projects.filter(
@@ -36,9 +54,40 @@ function AgencyProjects({ agency }) {
     setParams(next, { replace: true });
   };
   const returnTo = `/projects${params.size ? `?${params}` : ""}`;
+  const viewLink = (view) => {
+    const next = new URLSearchParams(params);
+    next.set("view", view);
+    return `/projects?${next}`;
+  };
 
   return (
     <>
+      {location.state?.membershipNotice === "left" && (
+        <p className="membership-notice" role="status">
+          Leave request saved. Check your current membership in the results
+          below.
+          {location.state?.membershipRefreshFailed && (
+            <>
+              {" "}We couldn’t refresh My projects after the change. If the results
+              are unavailable, try again below.
+            </>
+          )}
+        </p>
+      )}
+      <nav className="membership-views" aria-label="Project views">
+        <Link
+          to={viewLink("mine")}
+          aria-current={scope === "mine" ? "page" : undefined}
+        >
+          My projects
+        </Link>
+        <Link
+          to={viewLink("agency")}
+          aria-current={scope === "agency" ? "page" : undefined}
+        >
+          Discover projects
+        </Link>
+      </nav>
       <div className="workspace-list-tools">
         <div className="workspace-search">
           <label htmlFor="project-search">Search projects</label>
@@ -56,7 +105,9 @@ function AgencyProjects({ agency }) {
       </div>
       {resource.status === "loading" ? (
         <WorkspaceState title="Loading projects…" loading>
-          Getting projects for your agency.
+          {scope === "mine"
+            ? "Getting the projects you have joined."
+            : "Getting projects for your agency."}
         </WorkspaceState>
       ) : resource.status === "error" ? (
         <WorkspaceState
@@ -72,15 +123,23 @@ function AgencyProjects({ agency }) {
         </WorkspaceState>
       ) : projects.length === 0 ? (
         <WorkspaceState
-          title="No agency projects yet"
+          title={
+            scope === "mine"
+              ? "No projects joined yet"
+              : "No agency projects yet"
+          }
           action={
-            <Link className="workspace-button" to="/createproject">
-              Create a project
+            <Link
+              className="workspace-button"
+              to={scope === "mine" ? viewLink("agency") : "/createproject"}
+            >
+              {scope === "mine" ? "Browse agency projects" : "Create a project"}
             </Link>
           }
         >
-          Projects for {agencyNames[agency]} will appear here once they’re
-          available.
+          {scope === "mine"
+            ? "Join a project or create one to start your team's workspace."
+            : `Projects for ${agencyNames[agency]} will appear here once they’re available.`}
         </WorkspaceState>
       ) : (
         <>
@@ -90,7 +149,11 @@ function AgencyProjects({ agency }) {
             aria-atomic="true"
           >
             {filtered.length} {filtered.length === 1 ? "project" : "projects"}
-            {term ? " matching your search" : " in your agency"}
+            {term
+              ? " matching your search"
+              : scope === "mine"
+                ? " you have joined"
+                : " in your agency"}
           </p>
           {filtered.length === 0 ? (
             <WorkspaceState
@@ -107,7 +170,10 @@ function AgencyProjects({ agency }) {
               Try another project name or ID.
             </WorkspaceState>
           ) : (
-            <ul className="workspace-project-list" aria-label="Agency projects">
+            <ul
+              className="workspace-project-list"
+              aria-label={scope === "mine" ? "My projects" : "Agency projects"}
+            >
               {filtered.map((project) => (
                 <li
                   className="workspace-project-card"
@@ -135,15 +201,36 @@ function AgencyProjects({ agency }) {
                         {project.projectName}
                       </Link>
                     </h2>
-                    <p>{agencyNames[project.orgId]}</p>
+                    <p>
+                      {agencyNames[project.orgId]} ·{" "}
+                      <span className="membership-status">
+                        {membershipIds(project)?.includes(userId)
+                          ? "Member"
+                          : membershipIds(project)
+                            ? "Not joined"
+                            : "Membership unavailable"}
+                      </span>
+                    </p>
                   </div>
-                  <Link
-                    className="workspace-button secondary workspace-project-equipment"
-                    to={projectPath(project, "/resources")}
-                    aria-label={`Manage equipment for ${project.projectName}`}
-                  >
-                    Manage equipment
-                  </Link>
+                  <div className="membership-card-actions">
+                    {membershipIds(project) &&
+                      !membershipIds(project).includes(userId) && (
+                        <Link
+                          className="workspace-button"
+                          to={projectJoinPath(project, returnTo)}
+                          aria-label={`Join ${project.projectName}`}
+                        >
+                          Join project
+                        </Link>
+                      )}
+                    <Link
+                      className="workspace-button secondary workspace-project-equipment"
+                      to={projectPath(project, "/resources")}
+                      aria-label={`Manage equipment for ${project.projectName}`}
+                    >
+                      Manage equipment
+                    </Link>
+                  </div>
                   <span className="workspace-card-arrow" aria-hidden="true">
                     ↗
                   </span>
@@ -152,7 +239,9 @@ function AgencyProjects({ agency }) {
             </ul>
           )}
           <p className="workspace-data-note">
-            Showing projects for your agency.
+            {scope === "mine"
+              ? "Only projects with your verified membership are shown."
+              : "Discover projects within your verified agency."}
           </p>
         </>
       )}
@@ -162,7 +251,9 @@ function AgencyProjects({ agency }) {
 
 export default function ProjectDashboard() {
   const profile = useWorkspace();
+  const location = useLocation();
   const agency = profile.value?.agencyCode;
+  const joinPath = `/joinproject?${new URLSearchParams({ returnTo: `/projects${location.search}` })}`;
   return (
     <main className="workspace-page">
       <div className="workspace-page-heading">
@@ -172,7 +263,7 @@ export default function ProjectDashboard() {
           <p>Find your team’s work. Keep public resources moving.</p>
         </div>
         <div className="workspace-actions">
-          <Link className="workspace-button secondary" to="/joinproject">
+          <Link className="workspace-button secondary" to={joinPath}>
             Join project
           </Link>
           <Link className="workspace-button" to="/createproject">
@@ -208,7 +299,11 @@ export default function ProjectDashboard() {
           your agency before browsing projects.
         </WorkspaceState>
       ) : (
-        <AgencyProjects key={agency} agency={agency} />
+        <AgencyProjects
+          key={agency}
+          agency={agency}
+          userId={profile.value.id}
+        />
       )}
     </main>
   );

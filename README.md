@@ -160,7 +160,27 @@ The temporary owner-approved policy restricts project operations to the verified
 agency. Omitted agency context is filled server-side; a foreign `orgId` or `org_id`
 is rejected with HTTP 403 before contacting Projects or Hardware. The creation and
 join forms show a fixed account agency. Unfiltered discovery still lists agency
-projects; the My Projects UI is separate follow-up work.
+projects. `/projects` opens My Projects using the canonical current-user filter;
+`/projects?view=agency` opens Discover Projects. Both views retain the current search.
+
+## Project membership
+
+Discover a project to open a contextual join review, or enter its ID under Join
+project and select Find project. Joining requires a matching agency/project summary
+and confirmed membership data; a missing or unavailable record cannot send a join.
+Review the project, agency and account before confirming. Leave project on the
+detail page also requires confirmation. Cancel/Escape sends no membership write;
+pending requests cannot be submitted twice or dismissed. After an uncertain or
+rejected write, Refresh membership reads current data before another attempt.
+Successful writes reload project or list membership instead of changing it optimistically.
+
+The existing Novu Inbox uses the exact canonical user ID, displays the SDK unread
+total, and explains SDK session/list/count failures with a retry. It sends no
+membership events: Projects owns notification generation. Browser identity alone
+does not establish secure subscriber authorization. Signed subscriber access (or
+an agreed equivalent), real creator/member delivery, recipient isolation and no
+creator self-event still require integration-owner confirmation and live checks.
+Automated fixture checks do not establish those gates or release readiness.
 
 Hardware allocations, checkout and returns first verify the project in the caller's
 agency. Allocation reads require a project ID. Because Hardware still stores only
