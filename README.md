@@ -181,5 +181,7 @@ Use Node.js then Python buildpacks. Configure the same server environment variab
 as local development, and leave `VITE_API_BASE_URL` empty. The root
 `heroku-postbuild` script builds React; the included `Procfile` starts
 `gunicorn server.app:app`, which serves Flask and `client/dist` together.
-The current app does not expose a MongoDB health-check route. A successful page load
-alone does not verify upstream data services; check their read-only adapter requests.
+`GET /api/health` reports Flask liveness, the selected edge snapshot store, metrics
+and circuit state. It does not establish dependency health. See
+[live-first read fallback](docs/edge-store.md) for MongoDB configuration, coverage,
+expiry policies and failure boundaries.

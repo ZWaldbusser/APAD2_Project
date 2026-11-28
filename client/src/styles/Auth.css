@@ -6,7 +6,7 @@
   color: var(--workspace-ink);
   font-family: "Segoe UI", system-ui, sans-serif;
   line-height: 1.5;
-  font-size: 16px;
+  font-size: 1rem;
   color-scheme: light;
 }
 .auth-shell * {
@@ -46,14 +46,14 @@
   align-items: center;
   gap: 12px;
   text-decoration: none;
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   width: fit-content;
   min-height: 48px;
 }
 .auth-brand small {
   display: block;
-  font-size: 11px;
+  font-size: 0.875rem;
   letter-spacing: 0.12em;
 }
 .auth-brand-mark {
@@ -63,7 +63,7 @@
   height: 48px;
   border: 1px solid currentColor;
   border-radius: 10px;
-  font-size: 28px;
+  font-size: 1.75rem;
 }
 .auth-brand-content {
   margin: auto 0;
@@ -71,13 +71,13 @@
   max-width: 340px;
 }
 .auth-brand-content h2 {
-  font-size: 36px;
+  font-size: 2.25rem;
   line-height: 1.2;
   margin: 16px 0 24px;
   text-wrap: balance;
 }
 .auth-eyebrow {
-  font-size: 12px;
+  font-size: 0.875rem;
   font-weight: 650;
   letter-spacing: 0.12em;
 }
@@ -110,7 +110,7 @@
   color: var(--brand-orange);
 }
 .auth-brand-footer {
-  font-size: 13px;
+  font-size: 0.875rem;
   margin: 0;
 }
 .auth-content-column {
@@ -132,7 +132,7 @@
   min-width: 0;
 }
 .auth-card h1 {
-  font-size: 38px;
+  font-size: 2.375rem;
   line-height: 1.2;
   margin: 12px 0 16px;
   letter-spacing: -0.025em;
@@ -181,11 +181,11 @@
 .auth-hint {
   margin: 8px 0 0;
   color: var(--workspace-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .auth-field-error {
   margin: 8px 0 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .auth-password {
   display: flex;
@@ -310,7 +310,7 @@
 }
 .auth-setup-key code {
   overflow-wrap: anywhere;
-  font-size: 16px;
+  font-size: 1rem;
   user-select: all;
 }
 .auth-loading {
@@ -325,7 +325,7 @@
   padding: 20px 0;
   border-top: 1px solid var(--workspace-line);
   color: var(--workspace-muted);
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 .auth-skip {
   position: fixed;
@@ -353,7 +353,7 @@
     padding: 28px;
   }
   .auth-brand-content h2 {
-    font-size: 30px;
+    font-size: 1.875rem;
   }
   .auth-content-column main {
     padding: 40px 28px;
@@ -372,7 +372,7 @@
     display: none;
   }
   .auth-brand {
-    font-size: 22px;
+    font-size: 1.375rem;
   }
   .auth-content-column {
     flex: 1;
@@ -382,7 +382,7 @@
     align-items: flex-start;
   }
   .auth-card h1 {
-    font-size: 32px;
+    font-size: 2rem;
   }
   .auth-footer {
     margin: 0 24px;

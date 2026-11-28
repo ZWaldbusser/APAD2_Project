@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { users } from "../services";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { useAuthRequest } from "../hooks/useAuthRequest";
 import { authResponseError, hasToken } from "../authFeedback";
 import AuthFeedback from "./AuthFeedback";

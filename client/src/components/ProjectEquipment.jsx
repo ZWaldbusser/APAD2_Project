@@ -30,7 +30,7 @@ export default function ProjectEquipment({ project }) {
           <p className="workspace-muted">Resources assigned to this project.</p>
         </div>
         <Link
-          className="workspace-button secondary"
+          className="workspace-button workspace-equipment-link"
           to={projectPath(project, "/resources")}
         >
           Manage equipment

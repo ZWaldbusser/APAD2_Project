@@ -18,11 +18,13 @@ from users.client import UsersServiceError, validate_access_token
 from users.vendor_directory import remove_saved_vendor, save_vendor
 from request_scope import agency_data, json_object, reject, require_text
 from services.vendor_rankings import get_vendor_rankings
+from edge import create_edge, EdgeUnavailable, InvalidSnapshot
 
 from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
+app.extensions["edge"] = create_edge()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DIST = os.path.abspath(os.path.join(BASE_DIR, "..", "client", "dist"))
@@ -36,6 +38,8 @@ def handle_runtime_error(error):
 @app.errorhandler(ProjectsServiceError)
 @app.errorhandler(HardwareServiceError)
 @app.errorhandler(UsersServiceError)
+@app.errorhandler(EdgeUnavailable)
+@app.errorhandler(InvalidSnapshot)
 def handle_upstream_service_error(error):
     return jsonify({"error": str(error)}), error.status_code
 
@@ -91,6 +95,11 @@ app.register_blueprint(create_users_blueprint(), url_prefix="/api/users-service"
 app.register_blueprint(create_projects_blueprint(token_required), url_prefix="/api/projects-service")
 
 
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "edge": app.extensions["edge"].health()})
+
+
 @app.route("/api/integration/vendor-rankings", methods=["POST"])
 @token_required
 def vendor_rankings():
@@ -126,9 +135,13 @@ def get_hardware():
             data = {}
         if not isinstance(data, dict):
             return jsonify({"error": "Hardware list request body must be an object"}), 400
-        return jsonify(hardware_db.get_all_hardware(params=data)), 200
+        status, payload = app.extensions["edge"].read(
+            "hardware", "catalog", "public", data,
+            lambda: (200, hardware_db.get_all_hardware(params=data)),
+        )
+        return jsonify(payload), status
     except RuntimeError as e:
-        return jsonify({"error": str(e)}), 503
+        return jsonify({"error": str(e)}), getattr(e, "status_code", 503)
 
 
 @app.route("/api/hardware/checkout", methods=["POST"])
@@ -189,11 +202,15 @@ def get_allocations():
     project_id = data.get("projectId") or data.get("project_id")
     if not isinstance(project_id, str) or not project_id.strip():
         reject("Project ID is required")
-    if not _query_project(project_id, request.agency_code):
-        reject("Project not found", 404)
     data["projectId"] = project_id
     data["project_id"] = project_id
-    status, payload = hardware_db.get_allocations(params=data)
+    def live():
+        if not _query_project(project_id, request.agency_code):
+            reject("Project not found", 404)
+        return hardware_db.get_allocations(params=data)
+    status, payload = app.extensions["edge"].read(
+        "hardware", "allocations", request.agency_code, data, live,
+    )
     return jsonify(payload), status
 
 

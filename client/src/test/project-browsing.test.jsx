@@ -32,11 +32,21 @@ beforeEach(() => {
   localStorage.setItem("token", "mock-token.u1");
   window.history.replaceState({}, "", "/projects");
   request.mockReset();
-  request.mockImplementation(async (service, path) => {
+  request.mockImplementation(async (service, path, options) => {
     if (service === "users") return response({ user: profile });
     if (service === "hardware") return response(path === "/api/hardware" ? catalog : allocations);
-    if (path === "/projects/search_project")
+    if (path === "/projects/search_project") {
+      if (options?.body?.userId) {
+        return response({
+          projectList: summaries.map((project) => ({
+            ...project,
+            joined_users:
+              project.projectId === detail.projectId ? ["u1"] : ["u2"],
+          })),
+        });
+      }
       return response({ projectList: summaries });
+    }
     return response({ projectInfo: detail });
   });
 });
@@ -52,6 +62,30 @@ test("opens equipment directly from the project row with both identifiers and th
   expect(await screen.findByRole('cell', { name: 'Laptops' })).toBeInTheDocument();
   expect(window.location.search).toBe('?orgId=AUS');
   expect(request).toHaveBeenCalledWith('hardware', '/api/listAllocations', { method: 'POST', body: { page: 1, size: 100, projectId: 'P1 / north' } });
+});
+
+test("disables equipment access for non-members while keeping the project visible", async () => {
+  request.mockImplementation(async (service, path, options) => {
+    if (service === "users") return response({ user: profile });
+    if (path === "/projects/search_project") {
+      return response({
+        projectList: options?.body?.userId
+          ? [{ ...summaries[1], joined_users: ["u1"] }]
+          : summaries,
+      });
+    }
+    return response({ projectInfo: detail });
+  });
+  render(<App />);
+  await screen.findByRole("link", { name: detail.projectName });
+  expect(
+    await screen.findByRole("button", {
+      name: "Manage equipment for Library network refresh",
+    }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole("link", { name: "Manage equipment for Field operations" }),
+  ).toBeInTheDocument();
 });
 
 
@@ -84,13 +118,13 @@ test("does not request projects or invent an agency when the profile has none", 
 test("shows loading, reports a service failure, and recovers with the saved search", async () => {
   const user = userEvent.setup();
   let finish;
-  request.mockImplementation(async (service) =>
-    service === "users"
-      ? response({ user: profile })
-      : new Promise((resolve) => {
-          finish = resolve;
-        }),
-  );
+  request.mockImplementation(async (service, path, options) => {
+    if (service === "users") return response({ user: profile });
+    if (options?.body?.userId) return response({ projectList: [] });
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  });
   render(<App />);
   expect(
     await screen.findByRole("heading", { name: "Loading projects…" }),
